@@ -4,93 +4,90 @@ import (
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
-	"log"
 	"strings"
 	"unicode"
 )
 
 type TypeRef struct {
-	rawType string
+	RawType string
 }
 
 func NewTypeRef(rawType string) *TypeRef {
-	return &TypeRef{rawType: rawType}
+	return &TypeRef{RawType: rawType}
 }
 
 type TypeDef struct {
-	anchor      string
-	name        string
-	description []string
-	notes       []string
-	fields      map[string]TypeFieldDef
+	Anchor      string
+	Name        string
+	Description []string
+	Notes       []string
+	Fields      map[string]TypeFieldDef
 }
 
 type TypeFieldDef struct {
-	name        string
-	typeRef     *TypeRef
-	required    bool
-	description string
+	Name        string
+	TypeRef     *TypeRef
+	Required    bool
+	Description string
 }
 
 type MethodDef struct {
-	anchor      string
-	name        string
-	description []string
-	notes       []string
-	params      map[string]MethodParamDef
+	Anchor      string
+	Name        string
+	Description []string
+	Notes       []string
+	Params      map[string]MethodParamDef
 }
 
 type MethodParamDef struct {
-	name        string
-	typeRef     *TypeRef
-	required    bool
-	description string
+	Name        string
+	TypeRef     *TypeRef
+	Required    bool
+	Description string
 }
 
 var ErrElementNotFound = errors.New("element not found")
 
 func ParseType(doc *goquery.Document, anchor string) (*TypeDef, error) {
 	res := &TypeDef{
-		anchor: anchor,
-		fields: make(map[string]TypeFieldDef),
+		Anchor: anchor,
+		Fields: make(map[string]TypeFieldDef),
 	}
 
 	el := doc.Find("h4").FilterFunction(func(i int, s *goquery.Selection) bool {
-		return s.Children().First().Is(fmt.Sprintf("a.anchor[name='%s']", anchor))
+		return s.Children().First().Is(fmt.Sprintf("a.anchor[Name='%s']", anchor))
 	})
 	// header with anchor not found
 	if el.Length() == 0 {
 		return nil, ErrElementNotFound
 	}
-	res.name = el.Text()
+	res.Name = el.Text()
 
 	el = el.NextUntil("h4")
 
 	el.NextFilteredUntil("p", "table").Each(func(index int, p *goquery.Selection) {
-		res.description = append(res.description, p.Text())
+		res.Description = append(res.Description, p.Text())
 	})
 
 	el.Find("table tbody tr").Each(func(index int, tr *goquery.Selection) {
 		fieldName := ""
 		fieldDef := TypeFieldDef{}
 		tr.Find("td").Each(func(tdIndex int, td *goquery.Selection) {
-			log.Println(tdIndex, td.Text())
 			switch tdIndex {
 			case 0:
 				fieldName = td.Text()
 			case 1:
-				fieldDef.typeRef = NewTypeRef(td.Text())
+				fieldDef.TypeRef = NewTypeRef(td.Text())
 			case 2:
-				fieldDef.description = td.Text()
+				fieldDef.Description = td.Text()
 			}
-			log.Println(fieldDef)
 		})
-		fieldDef.required = !strings.HasPrefix(fieldDef.description, "Optional.")
-		res.fields[fieldName] = fieldDef
+		fieldDef.Required = !strings.HasPrefix(fieldDef.Description, "Optional.")
+		res.Fields[fieldName] = fieldDef
 	})
 
 	el.Find("blockquote p").Each(func(index int, p *goquery.Selection) {
-		res.notes = append(res.notes, p.Text())
+		res.Notes = append(res.Notes, p.Text())
 	})
 
 	return res, nil
@@ -98,48 +95,46 @@ func ParseType(doc *goquery.Document, anchor string) (*TypeDef, error) {
 
 func ParseMethod(doc *goquery.Document, anchor string) (*MethodDef, error) {
 	res := &MethodDef{
-		anchor: anchor,
-		params: make(map[string]MethodParamDef),
+		Anchor: anchor,
+		Params: make(map[string]MethodParamDef),
 	}
 
 	el := doc.Find("h4").FilterFunction(func(i int, s *goquery.Selection) bool {
-		return s.Children().First().Is(fmt.Sprintf("a.anchor[name='%s']", anchor))
+		return s.Children().First().Is(fmt.Sprintf("a.anchor[Name='%s']", anchor))
 	})
 	// header with anchor not found
 	if el.Length() == 0 {
 		return nil, ErrElementNotFound
 	}
-	res.name = el.Text()
+	res.Name = el.Text()
 
 	el = el.NextUntil("h4")
 
 	el.NextFilteredUntil("p", "table").Each(func(index int, p *goquery.Selection) {
-		res.description = append(res.description, p.Text())
+		res.Description = append(res.Description, p.Text())
 	})
 
 	el.Find("table tbody tr").Each(func(index int, tr *goquery.Selection) {
 		name := ""
 		def := MethodParamDef{}
 		tr.Find("td").Each(func(tdIndex int, td *goquery.Selection) {
-			log.Println(tdIndex, td.Text())
 			switch tdIndex {
 			case 0:
 				name = td.Text()
 			case 1:
-				def.typeRef = NewTypeRef(td.Text())
+				def.TypeRef = NewTypeRef(td.Text())
 			case 2:
-				def.required = td.Text() == "Yes"
+				def.Required = td.Text() == "Yes"
 			case 3:
-				def.description = td.Text()
+				def.Description = td.Text()
 			}
-			log.Println(def)
 		})
 
-		res.params[name] = def
+		res.Params[name] = def
 	})
 
 	el.Find("blockquote p").Each(func(index int, p *goquery.Selection) {
-		res.notes = append(res.notes, p.Text())
+		res.Notes = append(res.Notes, p.Text())
 	})
 
 	return res, nil
@@ -153,9 +148,9 @@ const (
 )
 
 type ParseTarget struct {
-	anchor string
-	name   string
-	mode   ParseMode
+	Anchor string
+	Name   string
+	Mode   ParseMode
 }
 
 func isFirstLetterCapital(str string) bool {
@@ -174,7 +169,7 @@ func ParseNav(doc *goquery.Document, anchor string) []ParseTarget {
 	var res []ParseTarget
 
 	el := doc.Find("h3").FilterFunction(func(i int, s *goquery.Selection) bool {
-		return s.Children().First().Is(fmt.Sprintf("a.anchor[name='%s']", anchor))
+		return s.Children().First().Is(fmt.Sprintf("a.anchor[Name='%s']", anchor))
 	})
 
 	el = el.NextFilteredUntil("h4", "h3").FilterFunction(func(i int, s *goquery.Selection) bool {
@@ -189,13 +184,13 @@ func ParseNav(doc *goquery.Document, anchor string) []ParseTarget {
 		s = s.Find("a.anchor")
 		if id, ok := s.Attr("name"); ok {
 			t := ParseTarget{
-				anchor: id,
-				name:   name,
+				Anchor: id,
+				Name:   name,
 			}
-			if isFirstLetterCapital(t.name) {
-				t.mode = ParseModeType
+			if isFirstLetterCapital(t.Name) {
+				t.Mode = ParseModeType
 			} else {
-				t.mode = ParseModeMethod
+				t.Mode = ParseModeMethod
 			}
 			res = append(res, t)
 		}
