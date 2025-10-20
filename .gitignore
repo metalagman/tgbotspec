@@ -1,0 +1,38 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+bin/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+.DS_Store
+
+.idea/
+.vscode/
+.task/
+.env
+
+# bin files for local development
+/tools/bin
+
+/configs/*.toml
+!/configs/example.toml
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+bin
+
+.cache
+
+# Generated cache/artifact files
+spec_cache.html
+openapi.generated.yaml

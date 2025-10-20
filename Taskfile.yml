@@ -1,0 +1,20 @@
+version: '3'
+
+vars:
+  OUTPUT: openapi.generated.yaml
+
+tasks:
+  default:
+    desc: Run the Telegram Bot API parser (prints OpenAPI to stdout)
+    cmds:
+      - go run ./cmd/tgbotspec
+
+  parse:
+    desc: Run the Telegram Bot API parser (prints OpenAPI to stdout)
+    cmds:
+      - go run ./cmd/tgbotspec
+
+  parse:save:
+    desc: Run the parser and save the generated OpenAPI to a file
+    cmds:
+      - go run ./cmd/tgbotspec > {{.OUTPUT}}

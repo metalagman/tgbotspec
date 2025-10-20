@@ -1,0 +1,157 @@
+openapi: 3.0.0
+info:
+  title: "{{ .Title }}"
+  version: "{{ .Version }}"
+paths:
+{{- range .Methods}}
+  /{{ .Name }}:
+    post:
+      operationId: {{ .Name }}
+      {{- if .Tags }}
+      tags:
+        {{- range .Tags}}
+        - {{ . }}
+        {{- end}}
+      {{- end}}
+      description: |-
+        {{- range .Description}}
+        {{ . }}
+        {{- end}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              {{- if .Params }}
+              properties:
+                {{- range .Params}}
+                {{ .Name }}:
+{{ indent 18 (renderSchema .Schema) }}
+                {{- end}}
+              {{- end}}
+              {{- $req := false }}
+              {{- range .Params}}
+              {{- if .Required }}{{ $req = true }}{{- end}}
+              {{- end}}
+              {{- if $req}}
+              required:
+                {{- range .Params}}
+                {{- if .Required}}
+                - {{ .Name }}
+                {{- end}}
+                {{- end}}
+              {{- end}}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                {{- if .Return }}
+                allOf:
+                  - $ref: '#/components/schemas/OkResponse'
+                  - type: object
+                    properties:
+                      result:
+{{ indent 24 (renderSchema .Return) }}
+                    required:
+                      - result
+                {{- else }}
+                $ref: '#/components/schemas/OkResponse'
+                {{- end }}
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+{{- end}}
+components:
+  schemas:
+{{- range .Types}}
+   {{.Name}}:
+      {{- if eq .Name "True"}}
+      type: boolean
+      enum:
+      - true
+      description: |-
+        {{- range .Description}}
+        {{ . }}
+        {{- end}}
+      {{- if .Tag}}
+      x-tags:
+        - {{ .Tag }}
+      {{- end}}
+      {{- else}}
+      type: object
+      description: |-
+        {{- range .Description}}
+        {{ . }}
+        {{- end}}
+      {{- if .Tag}}
+      x-tags:
+        - {{ .Tag }}
+      {{- end}}
+      {{- if .Fields}}
+      properties:
+        {{- range .Fields}}
+        {{ .Name }}:
+{{ indent 10 (renderSchema .Schema) }}
+        {{- end}}
+      {{- end}}
+      {{- $req := false }}
+      {{- range .Fields}}
+      {{- if .Required }}{{ $req = true }}{{- end}}
+      {{- end}}
+      {{- if $req}}
+      required:
+        {{- range .Fields}}
+        {{- if .Required}}
+        - {{ .Name }}
+        {{- end}}
+        {{- end}}
+      {{- end}}
+      {{- end}}
+{{- end}}
+
+   OkResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          enum:
+          - true
+      required:
+      - ok
+
+   ErrorResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          enum:
+          - false
+        error_code:
+          type: integer
+        description:
+          type: string
+        parameters:
+          $ref: '#/components/schemas/ResponseParameters'
+      required:
+      - ok
+      - error_code
+      - description
+   ResponseParameters:
+      type: object
+      properties:
+        migrate_to_chat_id:
+          type: integer
+        retry_after:
+          type: integer

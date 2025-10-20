@@ -30,9 +30,27 @@ type TypeSpec struct {
 	MaxProperties        *int                `yaml:"maxProperties,omitempty"`
 	MinProperties        *int                `yaml:"minProperties,omitempty"`
 	Discriminator        *Discriminator      `yaml:"discriminator,omitempty"`
+	Ref                  *TypeRef            `yaml:"$ref,omitempty"`
 }
 
 type Discriminator struct {
 	PropertyName string            `yaml:"propertyName"`
 	Mapping      map[string]string `yaml:"mapping,omitempty"`
+}
+
+// TypeRef is a minimal schema that only references another component schema via $ref.
+// It can be useful when a plain reference is desired instead of an inline TypeSpec.
+// Note: current generators mostly use TypeSpec.Ref, but this struct is provided for flexibility.
+type TypeRef struct {
+	Name string `yaml:"-"`
+}
+
+// MarshalYAML ensures that when TypeRef is serialized as the value of a
+// TypeSpec.Ref field (yaml:"$ref"), it produces the proper OpenAPI reference
+// string while the struct itself only stores the plain schema name.
+func (tr TypeRef) MarshalYAML() (interface{}, error) {
+	if tr.Name == "" {
+		return nil, nil
+	}
+	return "#/components/schemas/" + tr.Name, nil
 }
