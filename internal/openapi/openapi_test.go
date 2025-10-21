@@ -1,6 +1,9 @@
 package openapi //nolint:testpackage // tests rely on constructing internal types directly
 
 import (
+	"bytes"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/ghodss/yaml"
@@ -160,5 +163,58 @@ func TestRenderTypeSpecToYAML(t *testing.T) { //nolint:funlen // table-driven ca
 			// Compare JSON strings with relaxed equality
 			assert.JSONEq(t, string(expectedJSON), string(actualJSON))
 		})
+	}
+}
+
+func TestRenderTemplateNilData(t *testing.T) {
+	var buf bytes.Buffer
+
+	if err := RenderTemplate(&buf, nil); err != nil {
+		t.Fatalf("RenderTemplate returned error: %v", err)
+	}
+
+	if buf.Len() != 0 {
+		t.Fatalf("expected no output for nil data, got %q", buf.String())
+	}
+}
+
+func TestRenderTemplateEmptyTemplate(t *testing.T) {
+	originalTemplate := append([]byte(nil), openapiTemplate...)
+
+	openapiTemplate = nil
+	templateOnce = sync.Once{}
+	tmpl = nil
+	tmplErr = nil
+
+	t.Cleanup(func() {
+		openapiTemplate = originalTemplate
+		templateOnce = sync.Once{}
+		tmpl = nil
+		tmplErr = nil
+	})
+
+	var buf bytes.Buffer
+
+	err := RenderTemplate(&buf, &TemplateData{Title: "Test", Version: "1.0.0"})
+	if err == nil {
+		t.Fatal("expected error when template is empty")
+	}
+}
+
+func TestIndent(t *testing.T) {
+	input := "line1\n\nline2"
+	got := indent(2, input)
+	expected := "  line1\n\n  line2"
+
+	if got != expected {
+		t.Fatalf("indent result mismatch: got %q want %q", got, expected)
+	}
+
+	if indent(4, "") != "" {
+		t.Fatal("expected empty string to remain empty")
+	}
+
+	if indent(2, strings.Repeat(" ", 3)) != strings.Repeat(" ", 3) {
+		t.Fatal("expected whitespace-only lines to remain unchanged")
 	}
 }
