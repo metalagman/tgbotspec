@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
 	"tgbotspec/internal/scraper"
+
+	"github.com/spf13/cobra"
 )
 
 func newRootCmd() *cobra.Command {

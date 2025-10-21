@@ -18,3 +18,8 @@ tasks:
     desc: Run the parser and save the generated OpenAPI to a file
     cmds:
       - go run ./cmd/tgbotspec > {{.OUTPUT}}
+
+  lint:
+    desc: Run golangci-lint against the project
+    cmds:
+      - golangci-lint run ./...

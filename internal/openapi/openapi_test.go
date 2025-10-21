@@ -1,9 +1,10 @@
 package openapi
 
 import (
+	"testing"
+
 	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestRenderTypeSpecToYAML(t *testing.T) {

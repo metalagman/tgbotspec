@@ -138,7 +138,7 @@ type TypeFieldDef struct {
 
 // ParseType parses a Telegram type definition starting at the provided anchor
 // and returns the structured representation.
-func ParseType(doc *goquery.Document, anchor string) (*TypeDef, error) {
+func ParseType(doc *goquery.Document, anchor string) (*TypeDef, error) { //nolint:gocyclo // single pass over DOM keeps context manageable
 	res := &TypeDef{
 		Anchor: anchor,
 	}

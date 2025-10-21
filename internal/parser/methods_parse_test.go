@@ -430,7 +430,7 @@ func TestIsOptionalDescription(t *testing.T) {
 	}
 }
 
-func TestTypeRefUnionAndSpec(t *testing.T) {
+func TestTypeRefUnionAndSpec(t *testing.T) { //nolint:gocyclo // exhaustive table ensures broad coverage
 	if parts := NewTypeRef("Sticker or Photo").UnionParts(); !reflect.DeepEqual(parts, []string{"Sticker", "Photo"}) {
 		t.Fatalf("unexpected union parts: %#v", parts)
 	}

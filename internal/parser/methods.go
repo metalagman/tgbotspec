@@ -226,7 +226,7 @@ func parseReturnsClause(remainder string) string {
 	return ""
 }
 
-func parseIsReturnedClause(text string) string {
+func parseIsReturnedClause(text string) string { //nolint:gocyclo // parsing Telegram prose has many edge cases
 	lower := strings.ToLower(text)
 	stopIdx := strings.Index(lower, " is returned")
 	keyword := " is returned"
@@ -309,7 +309,7 @@ func looksLikeReturnType(s string) bool {
 
 // normalizeReturnTypePhrase cleans up common wording around return type phrases
 // from Telegram docs to align with our TypeRef parser expectations.
-func normalizeReturnTypePhrase(s string) string {
+func normalizeReturnTypePhrase(s string) string { //nolint:gocyclo // normalization needs comprehensive phrase cleanup
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return s
@@ -328,12 +328,11 @@ func normalizeReturnTypePhrase(s string) string {
 	}
 	stripLeading := func() {
 		for s != "" {
-			ls := strings.ToLower(s)
 			trimmed := false
+			ls := strings.ToLower(s)
 			for _, pref := range leadingPrefixes {
 				if strings.HasPrefix(ls, pref) {
 					s = strings.TrimSpace(s[len(pref):])
-					ls = strings.ToLower(s)
 					trimmed = true
 					break
 				}
@@ -411,7 +410,6 @@ func normalizeReturnTypePhrase(s string) string {
 	if strings.HasPrefix(ls, "array of ") {
 		s = "Array of " + strings.TrimSpace(s[len("array of "):])
 		stripLeading()
-		ls = strings.ToLower(s)
 	}
 	// Drop trailing generic words like "object(s)" when preceded by a type name
 	suffixes := []string{
