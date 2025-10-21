@@ -1,5 +1,7 @@
 # tgbotspec
 
+[![codecov](https://codecov.io/github/metalagman/tgbotspec/graph/badge.svg?token=LRNA4STCO7)](https://codecov.io/github/metalagman/tgbotspec)
+
 tgbotspec scrapes the official Telegram Bot API reference and emits an
 OpenAPI 3.0 specification. The generated document is suitable for feeding
 into code generators, client SDKs, or documentation tooling.
