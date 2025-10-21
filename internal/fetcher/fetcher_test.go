@@ -1,4 +1,4 @@
-package fetcher
+package fetcher //nolint:testpackage // coverage test exercises internal cache behavior
 
 import (
 	"os"
@@ -25,9 +25,10 @@ func TestDocumentUsesCache(t *testing.T) {
 		_ = os.Chdir(wd)
 	})
 
-	cachePath := filepath.Join(tmpDir, cacheFile)
+	cachePath := filepath.Join(tmpDir, "spec_cache.html")
+
 	html := `<html><body><p>cached</p></body></html>`
-	if err := os.WriteFile(cachePath, []byte(html), cacheFilePerm); err != nil {
+	if err := os.WriteFile(cachePath, []byte(html), 0o644); err != nil {
 		t.Fatalf("write cache: %v", err)
 	}
 

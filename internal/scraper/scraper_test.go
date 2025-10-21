@@ -1,4 +1,4 @@
-package scraper
+package scraper //nolint:testpackage // tests rely on internal helper hooks
 
 import (
 	"bytes"
@@ -44,6 +44,7 @@ func TestExtractAPITitle(t *testing.T) {
 
 func TestRunWritesOpenAPISpec(t *testing.T) {
 	original := fetchDocument
+
 	t.Cleanup(func() {
 		fetchDocument = original
 	})
