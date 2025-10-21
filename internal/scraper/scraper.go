@@ -14,12 +14,14 @@ import (
 	"tgbotspec/internal/parser"
 )
 
+var fetchDocument = fetcher.Document
+
 // Run orchestrates fetching the Telegram Bot API docs, parsing them, and
 // rendering the OpenAPI specification to the provided writer.
 //
 //nolint:cyclop,funlen // orchestration covers multiple branches
 func Run(w io.Writer) error {
-	doc, err := fetcher.Document()
+	doc, err := fetchDocument()
 	if err != nil {
 		return fmt.Errorf("fetch document: %w", err)
 	}
