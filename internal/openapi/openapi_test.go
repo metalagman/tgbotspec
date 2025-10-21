@@ -1,4 +1,4 @@
-package openapi
+package openapi //nolint:testpackage // tests rely on constructing internal types directly
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRenderTypeSpecToYAML(t *testing.T) {
+func TestRenderTypeSpecToYAML(t *testing.T) { //nolint:funlen // table-driven cases cover many shapes
 	testCases := []struct {
 		name         string
 		spec         TypeSpec
@@ -35,7 +35,9 @@ func TestRenderTypeSpecToYAML(t *testing.T) {
 				},
 				Required: []string{"id", "name"},
 			},
-			expectedYAML: "type: object\nproperties:\n  id:\n    format: int64\n    type: integer\n  name:\n    type: string\nrequired:\n- id\n- name\n",
+			expectedYAML: "type: object\n" +
+				"properties:\n  id:\n    format: int64\n    type: integer\n  name:\n    type: string\n" +
+				"required:\n- id\n- name\n",
 		},
 		{
 			name: "ArrayScalarType",
@@ -65,7 +67,18 @@ func TestRenderTypeSpecToYAML(t *testing.T) {
 					Required: []string{"id", "name"},
 				},
 			},
-			expectedYAML: "type: array\nitems:\n  type: object\n  properties:\n    id:\n      format: int64\n      type: integer\n    name:\n      type: string\n  required:\n  - id\n  - name\n",
+			expectedYAML: "type: array\n" +
+				"items:\n" +
+				"  type: object\n" +
+				"  properties:\n" +
+				"    id:\n" +
+				"      format: int64\n" +
+				"      type: integer\n" +
+				"    name:\n" +
+				"      type: string\n" +
+				"  required:\n" +
+				"  - id\n" +
+				"  - name\n",
 		},
 		{
 			name: "ArrayOfArrayOfObjectType",
@@ -88,7 +101,20 @@ func TestRenderTypeSpecToYAML(t *testing.T) {
 					},
 				},
 			},
-			expectedYAML: "type: array\nitems:\n  type: array\n  items:\n    type: object\n    properties:\n      id:\n        format: int64\n        type: integer\n      name:\n        type: string\n    required:\n    - id\n    - name\n",
+			expectedYAML: "type: array\n" +
+				"items:\n" +
+				"  type: array\n" +
+				"  items:\n" +
+				"    type: object\n" +
+				"    properties:\n" +
+				"      id:\n" +
+				"        format: int64\n" +
+				"        type: integer\n" +
+				"      name:\n" +
+				"        type: string\n" +
+				"    required:\n" +
+				"    - id\n" +
+				"    - name\n",
 		},
 		{
 			name: "AnyOfType",
@@ -111,6 +137,7 @@ func TestRenderTypeSpecToYAML(t *testing.T) {
 			yamlStr, err := RenderTypeSpecToYAML(&tc.spec)
 			if err != nil {
 				t.Errorf("Error rendering to YAML: %v", err)
+
 				return
 			}
 
@@ -118,6 +145,7 @@ func TestRenderTypeSpecToYAML(t *testing.T) {
 			expectedJSON, err := yaml.YAMLToJSON([]byte(tc.expectedYAML))
 			if err != nil {
 				t.Errorf("Error converting expected YAML to JSON: %v", err)
+
 				return
 			}
 
@@ -125,6 +153,7 @@ func TestRenderTypeSpecToYAML(t *testing.T) {
 			actualJSON, err := yaml.YAMLToJSON([]byte(yamlStr))
 			if err != nil {
 				t.Errorf("Error converting actual YAML to JSON: %v", err)
+
 				return
 			}
 

@@ -18,9 +18,11 @@ func newRootCmd() *cobra.Command {
 			if err := scraper.Run(cmd.OutOrStdout()); err != nil {
 				return fmt.Errorf("run scraper: %w", err)
 			}
+
 			return nil
 		},
 	}
+
 	return cmd
 }
 

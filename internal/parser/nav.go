@@ -27,11 +27,13 @@ func isFirstLetterCapital(str string) bool {
 	for _, r := range str {
 		return unicode.IsUpper(r)
 	}
+
 	return false
 }
 
 func containsExactlyOneWord(s string) bool {
 	words := strings.Fields(s)
+
 	return len(words) == 1
 }
 
@@ -53,6 +55,7 @@ func ParseNav(doc *goquery.Document, anchor string) []ParseTarget {
 		if !containsExactlyOneWord(name) {
 			return
 		}
+
 		s = s.Find("a.anchor")
 		if id, ok := s.Attr("name"); ok {
 			t := ParseTarget{
@@ -64,6 +67,7 @@ func ParseNav(doc *goquery.Document, anchor string) []ParseTarget {
 			} else {
 				t.Mode = ParseModeMethod
 			}
+
 			res = append(res, t)
 		}
 	})
@@ -85,8 +89,9 @@ func ParseAllNavs(doc *goquery.Document, anchors []string) []ParseTarget {
 
 // ParseNavLists extracts targets from the navigation lists rendered at the top
 // of the Telegram docs, deduplicating anchors and inferring their mode.
-func ParseNavLists(doc *goquery.Document) []ParseTarget {
+func ParseNavLists(doc *goquery.Document) []ParseTarget { //nolint:funlen // iterates over multiple DOM lists
 	var res []ParseTarget
+
 	seen := make(map[string]struct{})
 
 	addTarget := func(anchor, name string) {
@@ -94,13 +99,16 @@ func ParseNavLists(doc *goquery.Document) []ParseTarget {
 		if anchor == "" || strings.Contains(anchor, "-") {
 			return
 		}
+
 		if _, exists := seen[anchor]; exists {
 			return
 		}
+
 		name = strings.TrimSpace(name)
 		if name == "" {
 			return
 		}
+
 		t := ParseTarget{
 			Anchor: anchor,
 			Name:   name,
@@ -110,29 +118,35 @@ func ParseNavLists(doc *goquery.Document) []ParseTarget {
 		} else {
 			t.Mode = ParseModeMethod
 		}
+
 		res = append(res, t)
 		seen[anchor] = struct{}{}
 	}
 
 	doc.Find("a[data-target]").Each(func(i int, s *goquery.Selection) {
 		target, _ := s.Attr("data-target")
+
 		target = strings.TrimSpace(target)
 		if !strings.HasPrefix(target, "#") {
 			return
 		}
+
 		anchor := strings.TrimPrefix(target, "#")
 		if anchor == "" {
 			return
 		}
+
 		addTarget(anchor, s.Text())
 	})
 
 	doc.Find("ul.nav.navbar-nav.navbar-default.affix a[href^='#']").Each(func(i int, s *goquery.Selection) {
 		href, _ := s.Attr("href")
+
 		anchor := strings.TrimPrefix(strings.TrimSpace(href), "#")
 		if anchor == "" {
 			return
 		}
+
 		addTarget(anchor, s.Text())
 	})
 

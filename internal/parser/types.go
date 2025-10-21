@@ -9,6 +9,13 @@ import (
 	"tgbotspec/internal/openapi"
 )
 
+const (
+	fieldNameColumnIndex        = 0
+	fieldTypeColumnIndex        = 1
+	fieldDescriptionColumnIndex = 2
+	minUnionParts               = 2
+)
+
 // TypeRef represents a raw type string from the Telegram docs and helpers to
 // convert it into OpenAPI friendly structures.
 type TypeRef struct {
@@ -38,22 +45,28 @@ func (t *TypeRef) UnionParts() []string {
 	// Normalize connectors to commas, then split.
 	norm := raw
 	norm = strings.ReplaceAll(norm, " or ", ", ")
+
 	norm = strings.ReplaceAll(norm, " and ", ", ")
 	if !strings.Contains(norm, ",") {
 		return nil
 	}
+
 	parts := strings.Split(norm, ",")
+
 	res := make([]string, 0, len(parts))
 	for _, p := range parts {
 		p = strings.TrimSpace(p)
 		if p == "" {
 			continue
 		}
+
 		res = append(res, p)
 	}
-	if len(res) < 2 {
+
+	if len(res) < minUnionParts {
 		return nil
 	}
+
 	return res
 }
 
@@ -61,16 +74,18 @@ func (t *TypeRef) UnionParts() []string {
 // It handles nested arrays ("Array of X"), union types ("A or B" / "A, B and C"),
 // primitive scalars, and the Telegram-specific pseudo-type "True" which means
 // a boolean literal true (default: true).
-func (t *TypeRef) ToTypeSpec() *openapi.TypeSpec {
+func (t *TypeRef) ToTypeSpec() *openapi.TypeSpec { //nolint:cyclop // mapping type variants requires branching
 	if t == nil || strings.TrimSpace(t.RawType) == "" {
 		return &openapi.TypeSpec{}
 	}
+
 	raw := strings.TrimSpace(t.RawType)
 
 	// Handle Arrays recursively: patterns like "Array of X" possibly nested
 	const prefix = "Array of "
 	if strings.HasPrefix(raw, prefix) {
 		inner := strings.TrimSpace(strings.TrimPrefix(raw, prefix))
+
 		return &openapi.TypeSpec{
 			Type:  "array",
 			Items: NewTypeRef(inner).ToTypeSpec(),
@@ -79,6 +94,7 @@ func (t *TypeRef) ToTypeSpec() *openapi.TypeSpec {
 	// Also handle lower-case phrasing like "array of array of X"
 	if strings.HasPrefix(strings.ToLower(raw), "array of array of ") {
 		inner := strings.TrimSpace(raw[len("Array of "):])
+
 		return &openapi.TypeSpec{
 			Type:  "array",
 			Items: NewTypeRef(inner).ToTypeSpec(),
@@ -91,7 +107,8 @@ func (t *TypeRef) ToTypeSpec() *openapi.TypeSpec {
 		for _, p := range parts {
 			anyOf = append(anyOf, *NewTypeRef(p).ToTypeSpec())
 		}
-		if len(anyOf) >= 2 {
+
+		if len(anyOf) >= minUnionParts {
 			return &openapi.TypeSpec{AnyOf: anyOf}
 		}
 	}
@@ -104,6 +121,7 @@ func (t *TypeRef) ToTypeSpec() *openapi.TypeSpec {
 		if strings.EqualFold(raw, "int64") {
 			format = "int64"
 		}
+
 		return &openapi.TypeSpec{Type: "integer", Format: format}
 	case "float", "float number", "number":
 		return &openapi.TypeSpec{Type: "number"}
@@ -115,6 +133,7 @@ func (t *TypeRef) ToTypeSpec() *openapi.TypeSpec {
 	}
 
 	name := strings.TrimSpace(raw)
+
 	return &openapi.TypeSpec{Ref: &openapi.TypeRef{Name: name}}
 }
 
@@ -138,7 +157,9 @@ type TypeFieldDef struct {
 
 // ParseType parses a Telegram type definition starting at the provided anchor
 // and returns the structured representation.
-func ParseType(doc *goquery.Document, anchor string) (*TypeDef, error) { //nolint:gocyclo // single pass over DOM keeps context manageable
+//
+//nolint:cyclop,funlen // DOM parsing needs branching
+func ParseType(doc *goquery.Document, anchor string) (*TypeDef, error) {
 	res := &TypeDef{
 		Anchor: anchor,
 	}
@@ -149,6 +170,7 @@ func ParseType(doc *goquery.Document, anchor string) (*TypeDef, error) { //nolin
 	if header.Length() == 0 {
 		return nil, ErrElementNotFound
 	}
+
 	le := header.First()
 	res.Name = strings.TrimSpace(le.Text())
 	// Determine the tag as the nearest preceding h3 title
@@ -165,9 +187,11 @@ func ParseType(doc *goquery.Document, anchor string) (*TypeDef, error) { //nolin
 		if nodeName == "h4" {
 			break
 		}
+
 		if nodeName == "table" {
 			break
 		}
+
 		switch nodeName {
 		case "p":
 			text := strings.TrimSpace(sibling.Text())
@@ -187,17 +211,20 @@ func ParseType(doc *goquery.Document, anchor string) (*TypeDef, error) { //nolin
 	// Parse fields from the first table in the section
 	section.Find("table tbody tr").Each(func(index int, tr *goquery.Selection) {
 		fieldDef := TypeFieldDef{}
+
 		tr.Find("td").Each(func(tdIndex int, td *goquery.Selection) {
 			text := strings.TrimSpace(td.Text())
+
 			switch tdIndex {
-			case 0:
+			case fieldNameColumnIndex:
 				fieldDef.Name = text
-			case 1:
+			case fieldTypeColumnIndex:
 				fieldDef.TypeRef = NewTypeRef(text)
-			case 2:
+			case fieldDescriptionColumnIndex:
 				fieldDef.Description = text
 			}
 		})
+
 		if fieldDef.Name == "" {
 			return
 		}
@@ -205,6 +232,7 @@ func ParseType(doc *goquery.Document, anchor string) (*TypeDef, error) { //nolin
 		if fieldDef.Name == "chat_id" {
 			fieldDef.TypeRef = NewTypeRef("Integer")
 		}
+
 		fieldDef.Required = !isOptionalDescription(fieldDef.Description)
 		res.Fields = append(res.Fields, fieldDef)
 	})

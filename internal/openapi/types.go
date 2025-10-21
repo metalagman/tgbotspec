@@ -52,5 +52,6 @@ func (tr TypeRef) MarshalYAML() (interface{}, error) {
 	if tr.Name == "" {
 		return nil, nil
 	}
+
 	return "#/components/schemas/" + tr.Name, nil
 }

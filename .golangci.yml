@@ -1,29 +1,9 @@
-run:
-  timeout: 5m
+version: "2"
 
 linters:
+  default: fast
+  disable:
+    - wsl
+    - depguard
   enable:
-    - errcheck
-    - gofmt
-    - goimports
-    - govet
-    - ineffassign
-    - staticcheck
-    - revive
-    - gosimple
-    - gocyclo
-
-linters-settings:
-  gofmt:
-    simplify: true
-  gocyclo:
-    min-complexity: 15
-  revive:
-    ignore-generated-header: true
-  goimports:
-    local-prefixes: tgbotspec
-
-issues:
-  exclude-use-default: false
-  max-issues-per-linter: 0
-  max-same-issues: 0
+    - wsl_v5

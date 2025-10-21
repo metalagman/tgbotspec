@@ -21,6 +21,8 @@ func isOptionalDescription(s string) bool {
 	if s == "" {
 		return false
 	}
+
 	ls := strings.ToLower(s)
+
 	return strings.HasPrefix(ls, "optional")
 }

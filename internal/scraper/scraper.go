@@ -16,6 +16,8 @@ import (
 
 // Run orchestrates fetching the Telegram Bot API docs, parsing them, and
 // rendering the OpenAPI specification to the provided writer.
+//
+//nolint:cyclop,funlen // orchestration covers multiple branches
 func Run(w io.Writer) error {
 	doc, err := fetcher.Document()
 	if err != nil {
@@ -26,10 +28,12 @@ func Run(w io.Writer) error {
 	if apiVersion == "" {
 		apiVersion = "0.0.0"
 	}
+
 	title := extractAPITitle(doc)
 	if title == "" {
 		title = "Telegram Bot API"
 	}
+
 	log.Printf("scraper: detected Telegram Bot API title %q, version %s", title, apiVersion)
 
 	typeTargets, methodTargets := splitTargets(parser.ParseNavLists(doc), doc)
@@ -53,6 +57,7 @@ func Run(w io.Writer) error {
 				Schema:      field.TypeRef.ToTypeSpec(),
 			})
 		}
+
 		renderData.Types = append(renderData.Types, spec)
 	}
 
@@ -70,6 +75,7 @@ func Run(w io.Writer) error {
 		for name := range m.Params {
 			paramNames = append(paramNames, name)
 		}
+
 		sort.Strings(paramNames)
 
 		for _, name := range paramNames {
@@ -88,6 +94,7 @@ func Run(w io.Writer) error {
 	if err := openapi.RenderTemplate(w, &renderData); err != nil {
 		return fmt.Errorf("render template: %w", err)
 	}
+
 	return nil
 }
 
@@ -107,8 +114,10 @@ func splitTargets(targets []parser.ParseTarget, doc *goquery.Document) ([]parser
 		targets = parser.ParseAllNavs(doc, sections)
 	}
 
-	var typeTargets []parser.TypeDef
-	var methodTargets []parser.MethodDef
+	var (
+		typeTargets   []parser.TypeDef
+		methodTargets []parser.MethodDef
+	)
 
 	for _, target := range targets {
 		switch target.Mode {
@@ -116,15 +125,19 @@ func splitTargets(targets []parser.ParseTarget, doc *goquery.Document) ([]parser
 			td, err := parser.ParseType(doc, target.Anchor)
 			if err != nil {
 				log.Printf("scraper: parse type %q failed: %v", target.Anchor, err)
+
 				continue
 			}
+
 			typeTargets = append(typeTargets, *td)
 		case parser.ParseModeMethod:
 			md, err := parser.ParseMethod(doc, target.Anchor)
 			if err != nil {
 				log.Printf("scraper: parse method %q failed: %v", target.Anchor, err)
+
 				continue
 			}
+
 			methodTargets = append(methodTargets, *md)
 		}
 	}
@@ -143,6 +156,7 @@ func splitTargets(targets []parser.ParseTarget, doc *goquery.Document) ([]parser
 			sort.Strings(methodTargets[i].Tags)
 		}
 	}
+
 	return typeTargets, methodTargets
 }
 
@@ -155,6 +169,7 @@ func extractBotAPIVersion(doc *goquery.Document) string {
 	if text == "" {
 		return ""
 	}
+
 	return strings.TrimSpace(strings.TrimPrefix(text, "Bot API "))
 }
 
@@ -163,5 +178,6 @@ func extractAPITitle(doc *goquery.Document) string {
 	if h1 != "" {
 		return h1
 	}
+
 	return strings.TrimSpace(doc.Find("title").First().Text())
 }

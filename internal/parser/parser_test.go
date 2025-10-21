@@ -1,18 +1,21 @@
-package parser
+package parser //nolint:testpackage // tests verify internal helpers
 
 import (
 	"testing"
 )
 
-func TestExtractReturnType(t *testing.T) {
+func TestExtractReturnType(t *testing.T) { //nolint:funlen // large table ensures coverage of phrasing variants
 	cases := []struct {
 		name     string
 		paras    []string
 		expected string
 	}{
 		{
-			name:     "Returns an Array of Update objects",
-			paras:    []string{"Use this method to receive incoming updates using long polling. Returns an Array of Update objects."},
+			name: "Returns an Array of Update objects",
+			paras: []string{
+				"Use this method to receive incoming updates using long polling. " +
+					"Returns an Array of Update objects.",
+			},
 			expected: "Array of Update",
 		},
 		{
@@ -41,8 +44,10 @@ func TestExtractReturnType(t *testing.T) {
 			expected: "StickerSet",
 		},
 		{
-			name:     "On success, the sent Message is returned",
-			paras:    []string{"Use this method to send text messages. On success, the sent Message is returned."},
+			name: "On success, the sent Message is returned",
+			paras: []string{
+				"Use this method to send text messages. On success, the sent Message is returned.",
+			},
 			expected: "Message",
 		},
 		{
@@ -56,8 +61,10 @@ func TestExtractReturnType(t *testing.T) {
 			expected: "",
 		},
 		{
-			name:     "On success array of MessageId",
-			paras:    []string{"On success, an array of MessageId of the sent messages is returned."},
+			name: "On success array of MessageId",
+			paras: []string{
+				"On success, an array of MessageId of the sent messages is returned.",
+			},
 			expected: "Array of MessageId",
 		},
 		{
@@ -86,8 +93,10 @@ func TestExtractReturnType(t *testing.T) {
 			expected: "ForumTopic",
 		},
 		{
-			name:     "Conditional return message or true",
-			paras:    []string{"On success, if the message is not an inline message, the Message is returned, otherwise True is returned."},
+			name: "Conditional return message or true",
+			paras: []string{
+				"On success, if the message is not an inline message, the Message is returned, otherwise True is returned.",
+			},
 			expected: "Message or True",
 		},
 		{
@@ -135,19 +144,22 @@ func TestExtractReturnType(t *testing.T) {
 	}
 }
 
-func TestReturnTypeToSpec(t *testing.T) {
+func TestReturnTypeToSpec(t *testing.T) { //nolint:cyclop // sequential assertions cover many cases
 	// Array of Update -> array items $ref Update
 	tr := NewTypeRef("Array of Update")
+
 	spec := tr.ToTypeSpec()
 	if spec.Type != "array" {
 		t.Fatalf("expected array type, got %q", spec.Type)
 	}
+
 	if spec.Items == nil || spec.Items.Ref == nil || spec.Items.Ref.Name != "Update" {
 		t.Fatalf("expected items ref to Update, got %#v", spec.Items)
 	}
 
 	// True -> boolean default true
 	tr = NewTypeRef("True")
+
 	spec = tr.ToTypeSpec()
 	if spec.Type != "boolean" || spec.Default != true {
 		t.Fatalf("expected boolean with default true, got type=%q default=%v", spec.Type, spec.Default)
@@ -155,6 +167,7 @@ func TestReturnTypeToSpec(t *testing.T) {
 
 	// WebhookInfo -> $ref
 	tr = NewTypeRef("WebhookInfo")
+
 	spec = tr.ToTypeSpec()
 	if spec.Ref == nil || spec.Ref.Name != "WebhookInfo" {
 		t.Fatalf("expected $ref WebhookInfo, got %#v", spec)
@@ -162,24 +175,28 @@ func TestReturnTypeToSpec(t *testing.T) {
 
 	// StarAmount -> $ref
 	tr = NewTypeRef("StarAmount")
+
 	spec = tr.ToTypeSpec()
 	if spec.Ref == nil || spec.Ref.Name != "StarAmount" {
 		t.Fatalf("expected $ref StarAmount, got %#v", spec)
 	}
 
 	tr = NewTypeRef("Boolean")
+
 	spec = tr.ToTypeSpec()
 	if spec.Type != "boolean" {
 		t.Fatalf("expected boolean type, got %#v", spec)
 	}
 
 	tr = NewTypeRef("Float number")
+
 	spec = tr.ToTypeSpec()
 	if spec.Type != "number" {
 		t.Fatalf("expected number type, got %#v", spec)
 	}
 
 	tr = NewTypeRef("Int")
+
 	spec = tr.ToTypeSpec()
 	if spec.Type != "integer" {
 		t.Fatalf("expected integer type, got %#v", spec)

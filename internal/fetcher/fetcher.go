@@ -12,9 +12,10 @@ import (
 )
 
 const (
-	fetchURL   = "https://core.telegram.org/bots/api"
-	cacheFile  = "spec_cache.html"
-	cacheLimit = 24 * time.Hour
+	fetchURL      = "https://core.telegram.org/bots/api"
+	cacheFile     = "spec_cache.html"
+	cacheLimit    = 24 * time.Hour
+	cacheFilePerm = 0o644
 )
 
 // Document returns a goquery document sourced from the Telegram Bot API docs.
@@ -39,26 +40,41 @@ func HTML() ([]byte, error) {
 	if fileInfo, err := os.Stat(cacheFile); err == nil {
 		age := time.Since(fileInfo.ModTime())
 		if age < cacheLimit {
-			log.Printf("fetcher: using cached spec %s (age %s)", cacheFile, age.Truncate(time.Second))
+			log.Printf(
+				"fetcher: using cached spec %s (age %s)",
+				cacheFile,
+				age.Truncate(time.Second),
+			)
+
 			data, err := os.ReadFile(cacheFile)
 			if err != nil {
 				return nil, fmt.Errorf("read cache: %w", err)
 			}
+
 			return data, nil
 		}
-		log.Printf("fetcher: cache expired for %s (age %s > %s), refetching", cacheFile, age.Truncate(time.Second), cacheLimit)
+
+		log.Printf(
+			"fetcher: cache expired for %s (age %s > %s), refetching",
+			cacheFile,
+			age.Truncate(time.Second),
+			cacheLimit,
+		)
 	}
 
 	client := resty.New()
+
 	resp, err := client.R().Get(fetchURL)
 	if err != nil {
 		return nil, fmt.Errorf("fetch: %w", err)
 	}
+
 	log.Printf("fetcher: fetched spec from %s (%d bytes)", fetchURL, len(resp.Body()))
 
-	if err := os.WriteFile(cacheFile, resp.Body(), 0644); err != nil {
+	if err := os.WriteFile(cacheFile, resp.Body(), cacheFilePerm); err != nil {
 		return nil, fmt.Errorf("write cache: %w", err)
 	}
+
 	log.Printf("fetcher: wrote cache file %s", cacheFile)
 
 	return resp.Body(), nil

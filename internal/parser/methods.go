@@ -9,6 +9,13 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+const (
+	paramTypeColumnIndex        = 1
+	paramOptionalColumnIndex    = 2
+	paramDescriptionColumnIndex = 3
+	initialReturnTypesCapacity  = 2
+)
+
 // MethodDef holds the structured information extracted for a Telegram API method.
 type MethodDef struct {
 	Anchor      string
@@ -30,6 +37,8 @@ type MethodParamDef struct {
 
 // ParseMethod walks the documentation rooted at the provided anchor and
 // produces a MethodDef describing the Telegram API method.
+//
+//nolint:cyclop,funlen // doc traversal needs multiple branches
 func ParseMethod(doc *goquery.Document, anchor string) (*MethodDef, error) {
 	res := &MethodDef{
 		Anchor: anchor,
@@ -43,6 +52,7 @@ func ParseMethod(doc *goquery.Document, anchor string) (*MethodDef, error) {
 	if el.Length() == 0 {
 		return nil, fmt.Errorf("parse method at anchor %s: %w", anchor, ErrElementNotFound)
 	}
+
 	res.Name = el.Text()
 	// Determine the tag as the nearest preceding h3 title
 	if prevH3 := el.PrevAll().Filter("h3").First(); prevH3.Length() > 0 {
@@ -61,11 +71,14 @@ func ParseMethod(doc *goquery.Document, anchor string) (*MethodDef, error) {
 		// Skip over tables but keep scanning further siblings
 		if sib.IsMatcher(goquery.Single("table")) {
 			sib = sib.Next()
+
 			continue
 		}
+
 		if sib.IsMatcher(goquery.Single("p")) {
 			res.Description = append(res.Description, strings.TrimSpace(sib.Text()))
 		}
+
 		sib = sib.Next()
 	}
 
@@ -74,22 +87,24 @@ func ParseMethod(doc *goquery.Document, anchor string) (*MethodDef, error) {
 	if strings.TrimSpace(rt) == "" {
 		return nil, fmt.Errorf("parse method %s (%s): %w", res.Name, anchor, ErrReturnTypeNotParsed)
 	}
+
 	res.Return = NewTypeRef(rt)
 
 	el.Find("table tbody tr").Each(func(index int, tr *goquery.Selection) {
 		name := ""
 		def := MethodParamDef{}
+
 		tr.Find("td").Each(func(tdIndex int, td *goquery.Selection) {
 			switch tdIndex {
 			case 0:
 				name = td.Text()
-			case 1:
+			case paramTypeColumnIndex:
 				def.TypeRef = NewTypeRef(td.Text())
-			case 2:
+			case paramOptionalColumnIndex:
 				// Previously used the "Yes" column; now we rely on description prefix
 				// to determine optionality per spec guidance.
 				// leave as no-op; handled after loop.
-			case 3:
+			case paramDescriptionColumnIndex:
 				def.Description = td.Text()
 			}
 		})
@@ -121,6 +136,7 @@ func extractReturnType(paragraphs []string) string {
 		if text == "" {
 			continue
 		}
+
 		sentences := splitIntoSentences(text)
 		for _, sentence := range sentences {
 			if candidate := extractReturnTypeFromSentence(sentence); candidate != "" {
@@ -128,6 +144,7 @@ func extractReturnType(paragraphs []string) string {
 			}
 		}
 	}
+
 	return ""
 }
 
@@ -136,43 +153,53 @@ func splitIntoSentences(text string) []string {
 	if trimmed == "" {
 		return nil
 	}
+
 	var (
 		sentences []string
 		current   strings.Builder
 	)
 	for _, r := range trimmed {
 		current.WriteRune(r)
+
 		switch r {
 		case '.', '!', '?':
 			if s := strings.TrimSpace(current.String()); s != "" {
 				sentences = append(sentences, s)
 			}
+
 			current.Reset()
 		}
 	}
+
 	if tail := strings.TrimSpace(current.String()); tail != "" {
 		sentences = append(sentences, tail)
 	}
+
 	return sentences
 }
 
+//nolint:cyclop,nestif // parsing return phrasing requires branching
 func extractReturnTypeFromSentence(sentence string) string {
 	text := strings.TrimSpace(sentence)
 	if text == "" {
 		return ""
 	}
+
 	lower := strings.ToLower(text)
 	if !strings.Contains(lower, "return") {
 		return ""
 	}
+
 	if idx := strings.Index(lower, "returns "); idx != -1 {
 		remainder := text[idx+len("Returns "):]
 		if candidate := parseReturnsClause(remainder); candidate != "" {
 			return candidate
 		}
 	}
+
 	if idx := strings.Index(lower, "on success"); idx != -1 {
 		remainder := strings.TrimSpace(text[idx+len("on success"):])
+
 		remainder = strings.TrimLeft(remainder, ", ")
 		if remainder != "" {
 			remainderLower := strings.ToLower(remainder)
@@ -181,75 +208,97 @@ func extractReturnTypeFromSentence(sentence string) string {
 					return candidate
 				}
 			}
+
 			if candidate := parseIsReturnedClause(remainder); candidate != "" {
 				return candidate
 			}
 		}
 	}
+
 	if candidate := parseIsReturnedClause(text); candidate != "" {
 		return candidate
 	}
+
 	return ""
 }
 
+//nolint:cyclop // phrase trimming needs multiple delimiters
 func parseReturnsClause(remainder string) string {
 	trimmed := strings.TrimSpace(remainder)
 	if trimmed == "" {
 		return ""
 	}
+
 	lower := strings.ToLower(trimmed)
+
 	stop := len(trimmed)
 	for _, marker := range []string{" on success", " upon success", " if ", " when ", " otherwise ", ", if", ", when"} {
 		if idx := strings.Index(lower, marker); idx != -1 && idx < stop {
 			stop = idx
 		}
 	}
+
 	if idx := strings.IndexAny(trimmed, ".!?;"); idx != -1 && idx < stop {
 		stop = idx
 	}
+
 	if idx := strings.Index(trimmed, "("); idx != -1 && idx < stop {
 		stop = idx
 	}
+
 	if idx := strings.Index(trimmed, "["); idx != -1 && idx < stop {
 		stop = idx
 	}
+
 	if idx := strings.Index(trimmed, ","); idx != -1 && idx < stop {
 		stop = idx
 	}
+
 	candidate := strings.TrimSpace(trimmed[:stop])
 	candidate = strings.TrimSuffix(candidate, ".")
 	candidate = strings.TrimSpace(candidate)
+
 	candidate = normalizeReturnTypePhrase(candidate)
 	if looksLikeReturnType(candidate) {
 		return candidate
 	}
+
 	return ""
 }
 
-func parseIsReturnedClause(text string) string { //nolint:gocyclo // parsing Telegram prose has many edge cases
+//nolint:cyclop,funlen // handles numerous conjunction patterns
+func parseIsReturnedClause(text string) string {
 	lower := strings.ToLower(text)
 	stopIdx := strings.Index(lower, " is returned")
 	keyword := " is returned"
+
 	if stopIdx == -1 {
 		stopIdx = strings.Index(lower, " are returned")
 		keyword = " are returned"
 	}
+
 	if stopIdx == -1 {
 		return ""
 	}
+
 	prefix := strings.TrimSpace(text[:stopIdx])
 	if prefix == "" {
 		return ""
 	}
+
 	if comma := strings.LastIndex(prefix, ","); comma != -1 {
 		prefix = strings.TrimSpace(prefix[comma+1:])
 	}
+
 	primary := normalizeReturnTypePhrase(prefix)
-	types := make([]string, 0, 2)
+
+	types := make([]string, 0, initialReturnTypesCapacity)
 	if looksLikeReturnType(primary) {
 		types = append(types, primary)
 	}
+
 	rest := text[stopIdx+len(keyword):]
+
 	lowerRest := strings.ToLower(rest)
 	if idx := strings.Index(lowerRest, "otherwise "); idx != -1 {
 		alt := strings.TrimSpace(rest[idx+len("otherwise "):])
@@ -261,6 +310,7 @@ func parseIsReturnedClause(text string) string { //nolint:gocyclo // parsing Tel
 			types = append(types, val)
 		}
 	}
+
 	if idx := strings.Index(lowerRest, " or "); idx != -1 {
 		alt := strings.TrimSpace(rest[idx+len(" or "):])
 		if strings.HasPrefix(strings.ToLower(alt), "returns ") {
@@ -271,21 +321,27 @@ func parseIsReturnedClause(text string) string { //nolint:gocyclo // parsing Tel
 			types = append(types, val)
 		}
 	}
+
 	if len(types) == 0 {
 		return ""
 	}
+
 	seen := make(map[string]struct{}, len(types))
+
 	unique := make([]string, 0, len(types))
 	for _, t := range types {
 		if _, ok := seen[t]; ok {
 			continue
 		}
+
 		seen[t] = struct{}{}
 		unique = append(unique, t)
 	}
+
 	if len(unique) == 1 {
 		return unique[0]
 	}
+
 	return strings.Join(unique, " or ")
 }
 
@@ -293,27 +349,34 @@ func looksLikeReturnType(s string) bool {
 	if s == "" {
 		return false
 	}
+
 	ls := strings.ToLower(s)
 	switch ls {
 	case "true", "false", "string", "integer", "int", "float", "float number", "number", "boolean", "bool":
 		return true
 	}
+
 	if strings.HasPrefix(s, "Array of ") || strings.HasPrefix(s, "array of ") {
 		return true
 	}
+
 	if r, _ := utf8.DecodeRuneInString(s); r != utf8.RuneError && unicode.IsUpper(r) {
 		return true
 	}
+
 	return false
 }
 
 // normalizeReturnTypePhrase cleans up common wording around return type phrases
 // from Telegram docs to align with our TypeRef parser expectations.
-func normalizeReturnTypePhrase(s string) string { //nolint:gocyclo // normalization needs comprehensive phrase cleanup
+//
+//nolint:cyclop,funlen,gocognit // normalization handles many doc edge cases
+func normalizeReturnTypePhrase(s string) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return s
 	}
+
 	leadingPrefixes := []string{
 		"the sent ",
 		"the uploaded ",
@@ -329,20 +392,24 @@ func normalizeReturnTypePhrase(s string) string { //nolint:gocyclo // normalizat
 	stripLeading := func() {
 		for s != "" {
 			trimmed := false
+
 			ls := strings.ToLower(s)
 			for _, pref := range leadingPrefixes {
 				if strings.HasPrefix(ls, pref) {
 					s = strings.TrimSpace(s[len(pref):])
 					trimmed = true
+
 					break
 				}
 			}
+
 			if !trimmed {
 				break
 			}
 		}
 	}
 	stripLeading()
+
 	linkPrefixes := []string{
 		"created invoice link as ",
 		"invoice link as ",
@@ -351,64 +418,90 @@ func normalizeReturnTypePhrase(s string) string { //nolint:gocyclo // normalizat
 		"revoked invite link as ",
 		"invite link as ",
 	}
+
 	for {
 		ls := strings.ToLower(s)
 		trimmed := false
+
 		for _, pref := range linkPrefixes {
 			if strings.HasPrefix(ls, pref) {
 				s = strings.TrimSpace(s[len(pref):])
 				trimmed = true
+
 				break
 			}
 		}
+
 		if !trimmed {
 			break
 		}
+
 		stripLeading()
 	}
+
 	ls := strings.ToLower(s)
 	if strings.Contains(ls, "information about ") {
 		if idx := strings.Index(ls, " as a "); idx != -1 {
 			s = strings.TrimSpace(s[idx+len(" as a "):])
+
 			stripLeading()
+
 			ls = strings.ToLower(s)
 		} else if idx := strings.Index(ls, " as an "); idx != -1 {
 			s = strings.TrimSpace(s[idx+len(" as an "):])
+
 			stripLeading()
+
 			ls = strings.ToLower(s)
 		}
 	}
+
 	if idx := strings.Index(ls, " in form of a "); idx != -1 {
 		s = strings.TrimSpace(s[idx+len(" in form of a "):])
+
 		stripLeading()
+
 		ls = strings.ToLower(s)
 	}
+
 	if idx := strings.Index(ls, " in form of an "); idx != -1 {
 		s = strings.TrimSpace(s[idx+len(" in form of an "):])
+
 		stripLeading()
+
 		ls = strings.ToLower(s)
 	}
+
 	if idx := strings.Index(ls, " in the form of a "); idx != -1 {
 		s = strings.TrimSpace(s[idx+len(" in the form of a "):])
+
 		stripLeading()
+
 		ls = strings.ToLower(s)
 	}
+
 	if idx := strings.Index(ls, " in the form of an "); idx != -1 {
 		s = strings.TrimSpace(s[idx+len(" in the form of an "):])
+
 		stripLeading()
+
 		ls = strings.ToLower(s)
 	}
+
 	if idx := strings.LastIndex(ls, " as "); idx != -1 {
 		before := strings.TrimSpace(ls[:idx])
 		if strings.HasSuffix(before, " link") {
 			s = strings.TrimSpace(s[idx+len(" as "):])
+
 			stripLeading()
+
 			ls = strings.ToLower(s)
 		}
 	}
 	// Normalize array phrasing
 	if strings.HasPrefix(ls, "array of ") {
 		s = "Array of " + strings.TrimSpace(s[len("array of "):])
+
 		stripLeading()
 	}
 	// Drop trailing generic words like "object(s)" when preceded by a type name
@@ -426,16 +519,20 @@ func normalizeReturnTypePhrase(s string) string { //nolint:gocyclo // normalizat
 		" stories",
 		" story",
 	}
+
 	for {
 		trimmed := false
+
 		ls = strings.ToLower(s)
 		for _, suf := range suffixes {
 			if strings.HasSuffix(ls, suf) {
 				s = strings.TrimSpace(s[:len(s)-len(suf)])
 				trimmed = true
+
 				break
 			}
 		}
+
 		if !trimmed {
 			break
 		}
@@ -451,5 +548,6 @@ func normalizeReturnTypePhrase(s string) string { //nolint:gocyclo // normalizat
 	case "true":
 		return "True"
 	}
+
 	return s
 }
