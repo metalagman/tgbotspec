@@ -13,11 +13,12 @@ type TemplateData struct {
 // Method captures the data needed to describe a Telegram Bot API method in the
 // OpenAPI document.
 type Method struct {
-	Name        string
-	Tags        []string
-	Description []string
-	Params      []MethodParam
-	Return      *TypeSpec
+	Name              string
+	Tags              []string
+	Description       []string
+	Params            []MethodParam
+	Return            *TypeSpec
+	SupportsMultipart bool
 }
 
 // MethodParam describes a single parameter for a Telegram Bot API method.

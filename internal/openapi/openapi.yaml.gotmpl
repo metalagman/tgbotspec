@@ -51,6 +51,30 @@ paths:
                 {{- end}}
                 {{- end}}
               {{- end}}
+          {{- if .SupportsMultipart }}
+          multipart/form-data:
+            schema:
+              type: object
+              {{- if .Params }}
+              properties:
+                {{- range .Params}}
+                {{ .Name }}:
+{{ indent 18 (renderSchema .Schema) }}
+                {{- end}}
+              {{- end}}
+              {{- $req := false }}
+              {{- range .Params}}
+              {{- if .Required }}{{ $req = true }}{{- end}}
+              {{- end}}
+              {{- if $req}}
+              required:
+                {{- range .Params}}
+                {{- if .Required}}
+                - {{ .Name }}
+                {{- end}}
+                {{- end}}
+              {{- end}}
+          {{- end}}
       responses:
         '200':
           description: OK

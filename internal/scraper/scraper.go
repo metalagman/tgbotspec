@@ -94,9 +94,10 @@ func Run(w io.Writer) error {
 
 	for _, m := range methodTargets {
 		method := openapi.Method{
-			Name:        m.Name,
-			Tags:        m.Tags,
-			Description: m.Description,
+			Name:              m.Name,
+			Tags:              m.Tags,
+			Description:       m.Description,
+			SupportsMultipart: false,
 		}
 		if m.Return != nil {
 			method.Return = m.Return.ToTypeSpec()
@@ -117,6 +118,10 @@ func Run(w io.Writer) error {
 				Required:    param.Required,
 				Schema:      param.TypeRef.ToTypeSpec(),
 			})
+
+			if requiresMultipart(param.TypeRef) {
+				method.SupportsMultipart = true
+			}
 		}
 
 		renderData.Methods = append(renderData.Methods, method)
@@ -211,4 +216,24 @@ func extractAPITitle(doc *goquery.Document) string {
 	}
 
 	return strings.TrimSpace(doc.Find("title").First().Text())
+}
+
+func requiresMultipart(tr *parser.TypeRef) bool {
+	if tr == nil {
+		return false
+	}
+
+	if tr.ContainsType("InputFile") {
+		return true
+	}
+
+	if tr.ContainsTypeWithPrefix("InputMedia") {
+		return true
+	}
+
+	if tr.ContainsTypeWithPrefix("InputSticker") {
+		return true
+	}
+
+	return false
 }

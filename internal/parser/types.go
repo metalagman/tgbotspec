@@ -137,6 +137,70 @@ func (t *TypeRef) ToTypeSpec() *openapi.TypeSpec { //nolint:cyclop // mapping ty
 	return &openapi.TypeSpec{Ref: &openapi.TypeRef{Name: name}}
 }
 
+// ContainsType reports whether the raw type (including nested arrays/unions)
+// references the provided type name (case-insensitive exact match).
+func (t *TypeRef) ContainsType(target string) bool {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return false
+	}
+
+	targetLower := strings.ToLower(target)
+
+	return t.contains(func(raw string) bool {
+		return strings.EqualFold(raw, target) || strings.ToLower(raw) == targetLower
+	})
+}
+
+// ContainsTypeWithPrefix reports whether any referenced type name begins with
+// the provided prefix (case-insensitive).
+func (t *TypeRef) ContainsTypeWithPrefix(prefix string) bool {
+	prefix = strings.TrimSpace(prefix)
+	if prefix == "" {
+		return false
+	}
+
+	prefixLower := strings.ToLower(prefix)
+
+	return t.contains(func(raw string) bool {
+		return strings.HasPrefix(strings.ToLower(raw), prefixLower)
+	})
+}
+
+func (t *TypeRef) contains(predicate func(string) bool) bool {
+	if t == nil {
+		return false
+	}
+
+	raw := strings.TrimSpace(t.RawType)
+	if raw == "" {
+		return false
+	}
+
+	// Handle arrays like "Array of X" (possibly nested)
+	const arrayPrefix = "Array of "
+
+	lowerRaw := strings.ToLower(raw)
+	if strings.HasPrefix(lowerRaw, strings.ToLower(arrayPrefix)) {
+		inner := strings.TrimSpace(raw[len(arrayPrefix):])
+
+		return NewTypeRef(inner).contains(predicate)
+	}
+
+	// Handle union types via UnionParts
+	if parts := t.UnionParts(); parts != nil {
+		for _, part := range parts {
+			if NewTypeRef(part).contains(predicate) {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	return predicate(raw)
+}
+
 // TypeDef captures a Telegram object/type definition extracted from the docs.
 type TypeDef struct {
 	Anchor      string
