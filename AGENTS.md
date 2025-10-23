@@ -20,6 +20,6 @@ OpenAPI template in `internal/openapi/openapi.yaml.gotmpl`.
   verification but do not commit it.
 
 ## File Conventions
-- `internal/openapi/openapi.yaml.gotmpl` currently uses CRLF line endings; preserve
-  them when editing to keep diffs minimal.
+- Repository files now standardize on LF line endings. If you spot a CRLF file,
+  run `dos2unix <file>` before committing.
 - Keep changes focused—avoid reverting unrelated user edits or deleting cache files.

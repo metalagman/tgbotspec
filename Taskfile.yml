@@ -19,6 +19,11 @@ tasks:
     cmds:
       - go run ./cmd/tgbotspec > {{.OUTPUT}}
 
+  validate:
+    desc: Validate the generated OpenAPI spec using openapi-spec-validator
+    cmds:
+      - docker run --rm -v $(pwd)/{{.OUTPUT}}:/openapi.yaml pythonopenapi/openapi-spec-validator /openapi.yaml
+
   lint:
     desc: Run golangci-lint against the project
     cmds:

@@ -45,7 +45,15 @@ func Run(w io.Writer) error {
 		Version: apiVersion,
 	}
 
+	seenTypes := make(map[string]struct{}, len(typeTargets))
+
 	for _, t := range typeTargets {
+		if _, exists := seenTypes[t.Name]; exists {
+			continue
+		}
+
+		seenTypes[t.Name] = struct{}{}
+
 		spec := openapi.Type{
 			Name:        t.Name,
 			Tag:         t.Tag,
@@ -62,6 +70,27 @@ func Run(w io.Writer) error {
 
 		renderData.Types = append(renderData.Types, spec)
 	}
+
+	if _, ok := seenTypes["ResponseParameters"]; !ok {
+		renderData.Types = append(renderData.Types, openapi.Type{
+			Name: "ResponseParameters",
+			Fields: []openapi.TypeField{
+				{
+					Name:   "migrate_to_chat_id",
+					Schema: &openapi.TypeSpec{Type: "integer"},
+				},
+				{
+					Name:   "retry_after",
+					Schema: &openapi.TypeSpec{Type: "integer"},
+				},
+			},
+		})
+		seenTypes["ResponseParameters"] = struct{}{}
+	}
+
+	sort.Slice(renderData.Types, func(i, j int) bool {
+		return renderData.Types[i].Name < renderData.Types[j].Name
+	})
 
 	for _, m := range methodTargets {
 		method := openapi.Method{
