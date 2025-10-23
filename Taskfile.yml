@@ -34,4 +34,4 @@ tasks:
     cmds:
       - mkdir -p .cache/go-build
       - GOCACHE=$(pwd)/.cache/go-build go test -coverprofile=coverage.out -covermode=atomic ./...
-      - go tool cover -func=coverage.out
+      - GOCACHE=$(pwd)/.cache/go-build go tool cover -func=coverage.out

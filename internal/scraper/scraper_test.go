@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
+
+	"tgbotspec/internal/parser"
 )
 
 func docFromString(t *testing.T, html string) *goquery.Document {
@@ -61,5 +63,40 @@ func TestRunWritesOpenAPISpec(t *testing.T) {
 
 	if buf.Len() == 0 {
 		t.Fatal("expected rendered OpenAPI output")
+	}
+}
+
+func TestRequiresMultipart(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		raw  string
+		want bool
+	}{
+		{name: "nil type ref", raw: "", want: false},
+		{name: "non matching", raw: "String", want: false},
+		{name: "matches input file", raw: "InputFile", want: true},
+		{name: "nested array", raw: "Array of Array of InputFile", want: true},
+		{name: "input media prefix", raw: "Array of InputMediaPhoto", want: true},
+		{name: "input sticker prefix", raw: "InputStickerAnimated", want: true},
+		{name: "union with match", raw: "String or InputMediaDocument", want: true},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var tr *parser.TypeRef
+			if tc.raw != "" {
+				tr = parser.NewTypeRef(tc.raw)
+			}
+
+			if got := requiresMultipart(tr); got != tc.want {
+				t.Fatalf("requiresMultipart(%q) = %v, want %v", tc.raw, got, tc.want)
+			}
+		})
 	}
 }
