@@ -28,3 +28,10 @@ tasks:
     desc: Run golangci-lint against the project
     cmds:
       - golangci-lint run ./...
+
+  test:
+    desc: Run go test with coverage and print the summary to the console
+    cmds:
+      - mkdir -p .cache/go-build
+      - GOCACHE=$(pwd)/.cache/go-build go test -coverprofile=coverage.out -covermode=atomic ./...
+      - go tool cover -func=coverage.out
