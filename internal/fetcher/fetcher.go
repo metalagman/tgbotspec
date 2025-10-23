@@ -11,8 +11,12 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
+var (
+	fetchURL       = "https://core.telegram.org/bots/api"
+	newRestyClient = func() *resty.Client { return resty.New() }
+)
+
 const (
-	fetchURL      = "https://core.telegram.org/bots/api"
 	cacheFile     = "spec_cache.html"
 	cacheLimit    = 24 * time.Hour
 	cacheFilePerm = 0o644
@@ -62,7 +66,7 @@ func HTML() ([]byte, error) {
 		)
 	}
 
-	client := resty.New()
+	client := newRestyClient()
 
 	resp, err := client.R().Get(fetchURL)
 	if err != nil {
