@@ -1,10 +1,14 @@
-package openapi
+package openapi_test
 
-import "testing"
+import (
+	"testing"
+
+	"tgbotspec/internal/openapi"
+)
 
 func TestTypeRefMarshalYAML(t *testing.T) {
 	t.Run("empty name", func(t *testing.T) {
-		var tr TypeRef
+		var tr openapi.TypeRef
 
 		res, err := tr.MarshalYAML()
 		if err != nil {
@@ -17,7 +21,7 @@ func TestTypeRefMarshalYAML(t *testing.T) {
 	})
 
 	t.Run("with name", func(t *testing.T) {
-		tr := TypeRef{Name: "User"}
+		tr := openapi.TypeRef{Name: "User"}
 
 		res, err := tr.MarshalYAML()
 		if err != nil {

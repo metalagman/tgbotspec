@@ -1,8 +1,12 @@
-package parser
+package parser_test
 
-import "testing"
+import (
+	"testing"
 
-func TestTypeRefContainsType(t *testing.T) { //nolint:funlen // table covers various shapes
+	"tgbotspec/internal/parser"
+)
+
+func TestTypeRefContainsType(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -21,14 +25,12 @@ func TestTypeRefContainsType(t *testing.T) { //nolint:funlen // table covers var
 	}
 
 	for _, tc := range tests {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			var tr *TypeRef
+			var tr *parser.TypeRef
 			if tc.raw != "" {
-				tr = NewTypeRef(tc.raw)
+				tr = parser.NewTypeRef(tc.raw)
 			}
 
 			if got := tr.ContainsType(tc.target); got != tc.want {
@@ -56,14 +58,12 @@ func TestTypeRefContainsTypeWithPrefix(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			var tr *TypeRef
+			var tr *parser.TypeRef
 			if tc.raw != "" {
-				tr = NewTypeRef(tc.raw)
+				tr = parser.NewTypeRef(tc.raw)
 			}
 
 			if got := tr.ContainsTypeWithPrefix(tc.prefix); got != tc.want {
