@@ -2,6 +2,15 @@ openapi: 3.0.0
 info:
   title: "{{ .Title }}"
   version: "{{ .Version }}"
+servers:
+  - url: "https://api.telegram.org/bot{botToken}"
+    description: Telegram Bot API endpoint; substitute {botToken} with your bot token.
+    variables:
+      botToken:
+        description: Telegram bot token obtained from BotFather.
+        default: "<bot_token>"
+security:
+  - TelegramBotToken: []
 paths:
 {{- range .Methods}}
   /{{ .Name }}:
@@ -74,6 +83,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 {{- end}}
 components:
+  securitySchemes:
+    TelegramBotToken:
+      type: http
+      scheme: bearer
+      bearerFormat: TelegramBotToken
+      description: Telegram bot token included in the request URL segment (bot{token}).
   schemas:
 {{- range .Types}}
    {{.Name}}:
