@@ -3,38 +3,30 @@
 [![build](https://github.com/metalagman/tgbotspec/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/metalagman/tgbotspec/actions/workflows/golangci-lint.yml)
 [![codecov](https://codecov.io/github/metalagman/tgbotspec/graph/badge.svg?token=LRNA4STCO7)](https://codecov.io/github/metalagman/tgbotspec)
 
-tgbotspec scrapes the official Telegram Bot API reference and emits an
-OpenAPI 3.0 specification. The generated document is suitable for feeding
-into code generators, client SDKs, or documentation tooling.
+tgbotspec turns the official Telegram Bot API reference into an OpenAPI 3.0
+specification. Use the generated file with SDK generators, API explorers, or
+your own tooling.
 
-## Quick start
+## Install
 
-```bash
-go run ./cmd/tgbotspec > openapi.generated.yaml
-```
+Choose the option that suits your workflow:
 
-The command prints the complete OpenAPI spec to standard output. Redirect it
-to a file (as shown above) or pipe it into other tooling as needed.
+- **Go users:** `go install github.com/metalagman/tgbotspec/cmd/tgbotspec@latest`
+- **Binary download:** grab the latest tagged release for Linux from the
+  [GitHub releases](https://github.com/metalagman/tgbotspec/releases) page.
+- **Run without installing:** `go run ./cmd/tgbotspec`
 
-## Tasks
+All commands require Go 1.24+ when building locally.
 
-A Taskfile is provided for common workflows:
-
-```bash
-task          # runs the scraper and prints the spec
-task parse    # same as the default task
-task parse:save
-```
-
-The `parse:save` task writes the generated spec to `openapi.generated.yaml`.
-
-## Development
-
-Run the test suite to validate changes:
+## Generate the spec
 
 ```bash
-go test ./...
+tgbotspec > openapi.generated.yaml
 ```
 
-The project uses [Cobra](https://github.com/spf13/cobra) for the CLI entrypoint
-and relies on Go 1.24 or newer.
+The tool prints the OpenAPI document to standard output so you can redirect it
+to a file or pipe it into another process.
+
+By default the scraper works online. If you need to run it offline, place a
+cached copy of the Telegram docs in `spec_cache.html` before executing the
+command.
