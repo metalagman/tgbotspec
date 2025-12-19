@@ -18,7 +18,28 @@ Choose the option that suits your workflow:
 
 All commands require Go 1.24+ when building locally.
 
-## Generate the spec
+## Run with Docker
+
+You can run the tool in a container and capture the generated OpenAPI to a file.
+
+- Using the published image from GHCR:
+
+```bash
+docker run --rm ghcr.io/metalagman/tgbotspec:latest > openapi.generated.yaml
+```
+
+- Or using a locally built image (from this repo):
+
+```bash
+# Build the image
+docker build -t tgbotspec:local .
+
+# Run and save output
+docker run --rm tgbotspec:local > openapi.generated.yaml
+```
+
+
+## Generate the Spec
 
 ```bash
 tgbotspec > openapi.generated.yaml
@@ -27,6 +48,4 @@ tgbotspec > openapi.generated.yaml
 The tool prints the OpenAPI document to standard output so you can redirect it
 to a file or pipe it into another process.
 
-By default the scraper works online. If you need to run it offline, place a
-cached copy of the Telegram docs in `spec_cache.html` before executing the
-command.
+By default the scraper works online.
