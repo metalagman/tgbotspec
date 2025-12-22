@@ -5,6 +5,9 @@ on:
     branches:
       - main
       - master
+      - feature/*
+      - hotfix/*
+      - bugfix/*
   pull_request:
 
 permissions:
