@@ -1,8 +1,8 @@
 # tgbotspec
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/metalagman/tgbotspec)](https://goreportcard.com/report/github.com/metalagman/tgbotspec)
-[![build](https://github.com/metalagman/tgbotspec/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/metalagman/tgbotspec/actions/workflows/golangci-lint.yml)
-[![tests](https://github.com/metalagman/tgbotspec/actions/workflows/codecov.yml/badge.svg?label=tests)](https://github.com/metalagman/tgbotspec/actions/workflows/codecov.yml)
+[![golangci-lint](https://github.com/metalagman/tgbotspec/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/metalagman/tgbotspec/actions/workflows/golangci-lint.yml)
+[![tests](https://github.com/metalagman/tgbotspec/actions/workflows/tests.yml/badge.svg)](https://github.com/metalagman/tgbotspec/actions/workflows/tests.yml)
 [![codecov](https://codecov.io/github/metalagman/tgbotspec/graph/badge.svg?token=LRNA4STCO7)](https://codecov.io/github/metalagman/tgbotspec)
 [![version](https://img.shields.io/github/v/release/metalagman/tgbotspec?sort=semver)](https://github.com/metalagman/tgbotspec/releases)
 [![license](https://img.shields.io/github/license/metalagman/tgbotspec)](LICENSE)

@@ -1,10 +1,13 @@
-name: codecov
+name: tests
 
 on:
   push:
     branches:
       - main
       - master
+      - feature/*
+      - hotfix/*
+      - bugfix/*
   pull_request:
 
 permissions:
