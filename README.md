@@ -18,6 +18,9 @@ your own tooling.
 - Any‑of/one‑of types: union types from the docs are modeled with OpenAPI `anyOf`/`oneOf` (and refs) so generators can produce correct sum types.
 - Authorization: bearer token (`TelegramBotToken`) with server URL `https://api.telegram.org/bot{botToken}`.
 
+Example of the resulting Telegram Bot OpenAPI: https://github.com/metalagman/tgbotspec/releases/latest/download/openapi.yaml
+
+
 ## Run in Docker
 
 You can run the tool in a container and capture the generated OpenAPI to a file.
