@@ -7,9 +7,16 @@
 [![version](https://img.shields.io/github/v/release/metalagman/tgbotspec?sort=semver)](https://github.com/metalagman/tgbotspec/releases)
 [![license](https://img.shields.io/github/license/metalagman/tgbotspec)](LICENSE)
 
-tgbotspec turns the official Telegram Bot API reference into an OpenAPI 3.0
+**tgbotspec** turns the official Telegram Bot API reference into an OpenAPI 3.0
 specification. Use the generated file with SDK generators, API explorers, or
 your own tooling.
+
+## Features
+
+- Methods: all Telegram Bot API methods are included as OpenAPI paths with proper HTTP verbs and parameters.
+- Objects: all Bot API objects are generated as reusable component schemas.
+- Any‑of/one‑of types: union types from the docs are modeled with OpenAPI `anyOf`/`oneOf` (and refs) so generators can produce correct sum types.
+- Authorization: bearer token (`TelegramBotToken`) with server URL `https://api.telegram.org/bot{botToken}`.
 
 ## Run in Docker
 
@@ -48,6 +55,11 @@ go build -o tgbotspec ./cmd/tgbotspec
 ./tgbotspec > openapi.generated.yaml
 ```
 
+
+## Links
+
+- Telegram Bot API: https://core.telegram.org/bots/api
+- OpenAPI Specification: https://learn.openapis.org
 
 ## License
 
