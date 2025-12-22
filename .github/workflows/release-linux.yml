@@ -37,11 +37,16 @@ jobs:
           cd dist
           sha256sum tgbotspec-linux-amd64 > tgbotspec-linux-amd64.sha256
 
+      - name: Generate OpenAPI spec
+        run: |
+          ./dist/tgbotspec-linux-amd64 > dist/openapi.yaml
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/tgbotspec-linux-amd64
             dist/tgbotspec-linux-amd64.sha256
+            dist/openapi.yaml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
