@@ -1,0 +1,56 @@
+
+name: publish-image
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    name: Build and push image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare tags
+        id: prep
+        shell: bash
+        run: |
+          TAGS=""
+          if [[ "${GITHUB_REF_TYPE}" == "branch" && "${GITHUB_REF_NAME}" == "master" ]]; then
+            TAGS+="latest"
+          fi
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            # Use the git tag name as the image tag (strip leading 'v')
+            VERSION_NO_V="${GITHUB_REF_NAME#v}"
+            if [[ -n "$TAGS" ]]; then
+              TAGS+=$'\n'
+            fi
+            TAGS+="$VERSION_NO_V"
+          fi
+          echo "tags<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$TAGS" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/metalagman/tgbotspec:${{ steps.prep.outputs.tags }}

@@ -1,7 +1,19 @@
 version: '3'
 
+dotenv:
+  # Load environment variables from this file (if present)
+  - .env
+
 vars:
   OUTPUT: openapi.generated.yaml
+  IMAGE: tgbotspec
+  TAG: latest
+  GHCR_REGISTRY: ghcr.io
+  # Default namespace/owner for GHCR images (can be overridden):
+  IMAGE_NAMESPACE: ${IMAGE_NAMESPACE:-metalagman}
+  # Credentials for docker login to GHCR (read from environment if set):
+  GHCR_USERNAME: ${GHCR_USERNAME}
+  GHCR_TOKEN: ${GHCR_TOKEN}
 
 tasks:
   default:
@@ -35,3 +47,37 @@ tasks:
       - mkdir -p .cache/go-build
       - GOCACHE=$(pwd)/.cache/go-build go test -coverprofile=coverage.out -covermode=atomic ./...
       - GOCACHE=$(pwd)/.cache/go-build go tool cover -func=coverage.out
+
+  image:build:
+    desc: Build the tgbotspec container image
+    cmds:
+      - docker build -t tgbotspec:local .
+
+  ghcr:login:
+    desc: Docker login to GHCR using GHCR_USERNAME and GHCR_TOKEN env vars
+    cmds:
+      - |
+        if [ -z "{{.GHCR_USERNAME}}" ] || [ -z "{{.GHCR_TOKEN}}" ]; then
+          echo "GHCR_USERNAME and GHCR_TOKEN must be set in environment";
+          exit 1;
+        fi
+      - echo "{{.GHCR_TOKEN}}" | docker login {{.GHCR_REGISTRY}} -u "{{.GHCR_USERNAME}}" --password-stdin
+
+  image:push:
+    desc: Tag local image and push to GHCR. Set IMAGE_NAMESPACE (e.g. youruser or yourorg) optionally.
+    deps: [image:build]
+    cmds:
+      - |
+        if [ -n "{{.IMAGE_NAMESPACE}}" ]; then
+          TARGET_IMAGE={{.GHCR_REGISTRY}}/{{.IMAGE_NAMESPACE}}/{{.IMAGE}}:{{.TAG}}
+        else
+          # If IMAGE already includes a full path like ghcr.io/owner/name, use it as-is
+          case "{{.IMAGE}}" in
+            ghcr.io/*) TARGET_IMAGE={{.IMAGE}}:{{.TAG}} ;;
+            *) echo "Either set IMAGE to full ghcr path (ghcr.io/<owner>/{{.IMAGE}}) or provide IMAGE_NAMESPACE"; exit 1 ;;
+          esac
+        fi
+        echo "Tagging tgbotspec:local as $TARGET_IMAGE"
+        docker tag tgbotspec:local "$TARGET_IMAGE"
+        echo "Pushing $TARGET_IMAGE"
+        docker push "$TARGET_IMAGE"

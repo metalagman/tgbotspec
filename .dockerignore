@@ -1,0 +1,29 @@
+# Ignore VCS and CI metadata
+.git
+.github/
+.gitignore
+
+# Editor/IDE folders and temporary files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Task/Go build caches and coverage
+.cache/
+coverage.out
+
+# Environment files (keep example)
+.env
+.env.*
+!.env.example
+
+# Local artifacts and generated files
+openapi.generated.yaml
+spec_cache.html
+bin/
+dist/
+
+# Docker/Compose helper files (not needed in build context)
+docker-compose*.yml
+docker-compose*.yaml
