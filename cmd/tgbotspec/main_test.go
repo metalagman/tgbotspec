@@ -43,6 +43,53 @@ func TestNewRootCmd(t *testing.T) {
 	}
 }
 
+func TestNewRootCmdOutputFlag(t *testing.T) {
+	originalRun := runScraper
+	runScraper = func(w io.Writer) error {
+		if w == nil {
+			t.Fatal("expected writer to be non-nil")
+		}
+
+		_, _ = w.Write([]byte("ok"))
+
+		return nil
+	}
+
+	t.Cleanup(func() {
+		runScraper = originalRun
+	})
+
+	cmd := newRootCmd()
+	outputDir := t.TempDir()
+	outputPath := outputDir + string(os.PathSeparator) + "spec.yaml"
+
+	if err := os.WriteFile(outputPath, []byte("old"), 0o600); err != nil {
+		t.Fatalf("failed to write output file: %v", err)
+	}
+
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"-o", outputPath})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute returned error: %v", err)
+	}
+
+	if buf.Len() != 0 {
+		t.Fatalf("expected stdout to be empty, got %q", buf.String())
+	}
+
+	contents, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("failed to read output file: %v", err)
+	}
+
+	if string(contents) != "ok" {
+		t.Fatalf("expected output file to be overwritten, got %q", string(contents))
+	}
+}
+
 func TestMainSuccess(t *testing.T) {
 	originalRun := runScraper
 	originalExit := exit

@@ -28,7 +28,7 @@ You can run the tool in a container and capture the generated OpenAPI to a file.
 - Using the published image from GHCR:
 
 ```bash
-docker run --rm ghcr.io/metalagman/tgbotspec:latest > openapi.generated.yaml
+docker run --rm ghcr.io/metalagman/tgbotspec:latest -o openapi.yaml
 ```
 
 ## Run from binary
@@ -37,25 +37,32 @@ Download the latest release for your platform from
 [GitHub Releases](https://github.com/metalagman/tgbotspec/releases) and run:
 
 ```bash
-./tgbotspec > openapi.generated.yaml
+./tgbotspec -o openapi.yaml
 ```
 
 ## Build and run locally
 
 All commands require Go 1.24+ when building locally.
 
+- (Recommended) Add the CLI as a tool to your project and run it:
+
+```bash
+go get -tool github.com/metalagman/tgbotspec/cmd/tgbotspec@latest
+go tool tgbotspec -o openapi.yaml
+```
+
 - Install the CLI into your GOPATH/bin and run it:
 
 ```bash
 go install github.com/metalagman/tgbotspec/cmd/tgbotspec@latest
-tgbotspec > openapi.generated.yaml
+tgbotspec -o openapi.yaml
 ```
 
 - Or build a local binary from this repo and run it:
 
 ```bash
 go build -o tgbotspec ./cmd/tgbotspec
-./tgbotspec > openapi.generated.yaml
+./tgbotspec -o openapi.yaml
 ```
 
 
