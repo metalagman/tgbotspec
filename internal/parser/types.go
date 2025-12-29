@@ -6,7 +6,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
-	"tgbotspec/internal/openapi"
+	"github.com/metalagman/tgbotspec/internal/openapi"
 )
 
 const (

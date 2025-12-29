@@ -9,9 +9,9 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
-	"tgbotspec/internal/fetcher"
-	"tgbotspec/internal/openapi"
-	"tgbotspec/internal/parser"
+	"github.com/metalagman/tgbotspec/internal/fetcher"
+	"github.com/metalagman/tgbotspec/internal/openapi"
+	"github.com/metalagman/tgbotspec/internal/parser"
 )
 
 var fetchDocument = fetcher.Document

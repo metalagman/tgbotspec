@@ -3,7 +3,7 @@ package parser_test
 import (
 	"testing"
 
-	"tgbotspec/internal/parser"
+	"github.com/metalagman/tgbotspec/internal/parser"
 )
 
 func TestTypeRefContainsType(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
-	"tgbotspec/internal/parser"
+	"github.com/metalagman/tgbotspec/internal/parser"
 )
 
 func docFromString(t *testing.T, html string) *goquery.Document {

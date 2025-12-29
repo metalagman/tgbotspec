@@ -3,7 +3,7 @@ package openapi_test
 import (
 	"testing"
 
-	"tgbotspec/internal/openapi"
+	"github.com/metalagman/tgbotspec/internal/openapi"
 )
 
 func TestTypeRefMarshalYAML(t *testing.T) {

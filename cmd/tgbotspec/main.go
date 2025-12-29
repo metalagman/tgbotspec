@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"tgbotspec/internal/scraper"
+	"github.com/metalagman/tgbotspec/internal/scraper"
 
 	"github.com/spf13/cobra"
 )
