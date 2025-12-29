@@ -31,7 +31,7 @@ You can run the tool in a container and capture the generated OpenAPI to a file.
 - Using the published image from GHCR:
 
 ```bash
-docker run --rm ghcr.io/metalagman/tgbotspec:latest -o openapi.yaml
+docker run --rm ghcr.io/metalagman/tgbotspec:latest > openapi.yaml
 ```
 
 ## Run from binary
