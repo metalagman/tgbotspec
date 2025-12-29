@@ -1,4 +1,4 @@
-module tgbotspec
+module github.com/metalagman/tgbotspec
 
 go 1.24.0
 
