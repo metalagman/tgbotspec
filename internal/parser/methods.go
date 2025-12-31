@@ -90,7 +90,10 @@ func ParseMethod(doc *goquery.Document, anchor string) (*MethodDef, error) {
 
 	res.Return = NewTypeRef(rt)
 
-	el.Find("table tbody tr").Each(func(index int, tr *goquery.Selection) {
+	// Limit our search to the section between this header and the next h4
+	section := el.NextUntil("h4")
+
+	section.Find("table tbody tr").Each(func(index int, tr *goquery.Selection) {
 		name := ""
 		def := MethodParamDef{}
 
@@ -120,7 +123,7 @@ func ParseMethod(doc *goquery.Document, anchor string) (*MethodDef, error) {
 		res.Params[name] = def
 	})
 
-	el.Find("blockquote p").Each(func(index int, p *goquery.Selection) {
+	section.Find("blockquote p").Each(func(index int, p *goquery.Selection) {
 		res.Notes = append(res.Notes, p.Text())
 	})
 

@@ -90,6 +90,18 @@ func TestNewRootCmdOutputFlag(t *testing.T) {
 	}
 }
 
+func TestNewRootCmdError(t *testing.T) {
+	cmd := newRootCmd()
+	// Use an invalid path to trigger os.Create error
+	cmd.SetArgs([]string{"-o", "/invalid/path/spec.yaml"})
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected Execute to return error for invalid output path")
+	}
+}
+
 func TestMainSuccess(t *testing.T) {
 	originalRun := runScraper
 	originalExit := exit

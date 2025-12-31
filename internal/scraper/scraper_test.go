@@ -28,6 +28,11 @@ func TestExtractBotAPIVersion(t *testing.T) {
 	if version := extractBotAPIVersion(doc); version != "6.7" {
 		t.Fatalf("expected version 6.7, got %q", version)
 	}
+
+	docEmpty := docFromString(t, `<html><body></body></html>`)
+	if version := extractBotAPIVersion(docEmpty); version != "" {
+		t.Fatalf("expected empty version, got %q", version)
+	}
 }
 
 func TestExtractAPITitle(t *testing.T) {
@@ -42,7 +47,53 @@ func TestExtractAPITitle(t *testing.T) {
 	if title := extractAPITitle(fallback); title != "Fallback" {
 		t.Fatalf("expected fallback title, got %q", title)
 	}
+
+	empty := docFromString(t, `<html><body></body></html>`)
+	if title := extractAPITitle(empty); title != "" {
+		t.Fatalf("expected empty title, got %q", title)
+	}
 }
+
+const mockHTML = `
+<html>
+<head><title>Mock API</title></head>
+<body>
+	<a data-target="#User">User</a>
+	<a data-target="#User">Duplicate</a>
+	<a data-target="#InputFile">InputFile</a>
+	<a data-target="#getMe">getMe</a>
+	<a data-target="#sendPhoto">sendPhoto</a>
+
+	<p><strong>Bot API 7.0</strong></p>
+	<h3>Available types</h3>
+	<h4><a class="anchor" name="User"></a>User</h4>
+	<p>This object represents a Telegram user or bot.</p>
+	<table>
+		<tbody>
+			<tr><td>id</td><td>Integer</td><td>Unique identifier for this user or bot.</td></tr>
+			<tr><td>is_bot</td><td>Boolean</td><td>True, if this user is a bot</td></tr>
+			<tr><td>first_name</td><td>String</td><td>User's or bot's first name</td></tr>
+		</tbody>
+	</table>
+
+	<h4><a class="anchor" name="InputFile"></a>InputFile</h4>
+	<p>Skipped in Run loop.</p>
+
+	<h3>Available methods</h3>
+	<h4><a class="anchor" name="getMe"></a>getMe</h4>
+	<p>A simple method for testing your bot's authentication token.
+	Returns basic information about the bot in form of a User object.</p>
+
+	<h4><a class="anchor" name="sendPhoto"></a>sendPhoto</h4>
+	<p>Use this method to send photos. On success, the sent Message is returned.</p>
+	<table>
+		<tbody>
+			<tr><td>chat_id</td><td>Integer or String</td><td>Unique identifier for the target chat</td></tr>
+			<tr><td>photo</td><td>InputFile or String</td><td>Photo to send.</td></tr>
+		</tbody>
+	</table>
+</body>
+</html>`
 
 func TestRunWritesOpenAPISpec(t *testing.T) {
 	original := fetchDocument
@@ -51,7 +102,38 @@ func TestRunWritesOpenAPISpec(t *testing.T) {
 		fetchDocument = original
 	})
 
-	html := `<html><head><title>Mock API</title></head><body><p><strong>Bot API 7.0</strong></p></body></html>`
+	fetchDocument = func() (*goquery.Document, error) {
+		return docFromString(t, mockHTML), nil
+	}
+
+	var buf bytes.Buffer
+	if err := Run(&buf); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+
+	out := buf.String()
+	if out == "" {
+		t.Fatal("expected rendered OpenAPI output")
+	}
+
+	assertContains(t, out, "operationId: getMe", "getMe method")
+	assertContains(t, out, "User:", "User type")
+	assertContains(t, out, "ResponseParameters:", "ResponseParameters type")
+}
+
+func TestRunWithEmptyDoc(t *testing.T) {
+	original := fetchDocument
+
+	t.Cleanup(func() { fetchDocument = original })
+
+	// Doc with ResponseParameters already present to exercise that branch
+	html := `
+		<html><body>
+			<a data-target="#ResponseParameters">ResponseParameters</a>
+			<h3>Available types</h3>
+			<h4><a class="anchor" name="ResponseParameters"></a>ResponseParameters</h4>
+			<table><tbody><tr><td>retry_after</td><td>Integer</td><td>desc</td></tr></tbody></table>
+		</body></html>`
 	fetchDocument = func() (*goquery.Document, error) {
 		return docFromString(t, html), nil
 	}
@@ -61,8 +143,64 @@ func TestRunWritesOpenAPISpec(t *testing.T) {
 		t.Fatalf("Run returned error: %v", err)
 	}
 
-	if buf.Len() == 0 {
-		t.Fatal("expected rendered OpenAPI output")
+	out := buf.String()
+	if !strings.Contains(out, "title: \"Telegram Bot API\"") {
+		t.Error("expected default title")
+	}
+
+	if !strings.Contains(out, "version: \"0.0.0\"") {
+		t.Error("expected default version")
+	}
+}
+
+func assertContains(t *testing.T, s, substr, name string) {
+	t.Helper()
+
+	if !strings.Contains(s, substr) {
+		t.Errorf("expected %s in output", name)
+	}
+}
+
+func TestSplitTargets(t *testing.T) {
+	html := `
+		<html>
+		<body>
+			<h3><a class="anchor" name="available-types"></a>Available types</h3>
+			<h4><a class="anchor" name="User"></a>User</h4>
+			<table><tbody><tr><td>id</td><td>Integer</td><td>desc</td></tr></tbody></table>
+
+			<h3><a class="anchor" name="available-methods"></a>Available methods</h3>
+			<h4><a class="anchor" name="getMe"></a>getMe</h4>
+			<p>Returns User.</p>
+		</body>
+		</html>`
+	doc := docFromString(t, html)
+
+	// Test with explicit targets
+	targets := []parser.ParseTarget{
+		{Anchor: "User", Mode: parser.ParseModeType, Name: "User"},
+		{Anchor: "getMe", Mode: parser.ParseModeMethod, Name: "getMe"},
+		{Anchor: "MissingType", Mode: parser.ParseModeType, Name: "MissingType"},
+		{Anchor: "MissingMethod", Mode: parser.ParseModeMethod, Name: "MissingMethod"},
+	}
+
+	types, methods := splitTargets(targets, doc)
+	if len(types) != 1 || types[0].Name != "User" {
+		t.Errorf("expected 1 type User, got %d", len(types))
+	}
+
+	if len(methods) != 1 || methods[0].Name != "getMe" {
+		t.Errorf("expected 1 method getMe, got %d", len(methods))
+	}
+
+	// Test with automatic targets (empty input)
+	types, methods = splitTargets(nil, doc)
+	if len(types) != 1 || types[0].Name != "User" {
+		t.Errorf("expected 1 automatic type User, got %d", len(types))
+	}
+
+	if len(methods) != 1 || methods[0].Name != "getMe" {
+		t.Errorf("expected 1 automatic method getMe, got %d", len(methods))
 	}
 }
 

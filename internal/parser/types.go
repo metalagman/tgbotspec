@@ -130,6 +130,9 @@ func (t *TypeRef) ToTypeSpec() *openapi.TypeSpec { //nolint:cyclop // mapping ty
 	case "true":
 		// Telegram Bot API special pseudo-type "True" means a boolean literal true
 		return &openapi.TypeSpec{Type: "boolean", Default: true}
+	case "inputfile":
+		// InputFile is a special type representing file content for uploads
+		return &openapi.TypeSpec{Type: "string", Format: "binary"}
 	}
 
 	name := strings.TrimSpace(raw)
