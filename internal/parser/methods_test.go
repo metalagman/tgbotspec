@@ -1,26 +1,12 @@
-package parser //nolint:testpackage // package tests rely on internal helpers
+package parser //nolint:testpackage // tests verify internal helpers
 
 import (
 	"errors"
 	"reflect"
-	"strings"
 	"testing"
-
-	"github.com/PuerkitoBio/goquery"
 )
 
-func mustDoc(t *testing.T, html string) *goquery.Document {
-	t.Helper()
-
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
-	if err != nil {
-		t.Fatalf("failed to build document: %v", err)
-	}
-
-	return doc
-}
-
-//nolint:cyclop // comprehensive table checks parsing branches
+//nolint:cyclop,funlen // comprehensive table checks parsing branches
 func TestParseMethodSuccess(t *testing.T) {
 	doc := mustDoc(t, `
 		<html><body>
@@ -41,6 +27,12 @@ func TestParseMethodSuccess(t *testing.T) {
 			  <td>Integer</td>
 			  <td>Maximum number of items to return</td>
 			  <td>Limit description</td>
+			</tr>
+			<tr>
+			  <td>from_chat_id</td>
+			  <td>Integer or String</td>
+			  <td>Optional</td>
+			  <td>Optional. Source chat identifier</td>
 			</tr>
 		  </tbody>
 		</table>
@@ -78,6 +70,10 @@ func TestParseMethodSuccess(t *testing.T) {
 		t.Fatalf("limit param missing required flag: %#v", got)
 	}
 
+	if got, ok := method.Params["from_chat_id"]; !ok || got.TypeRef.RawType != "Integer" || got.Required {
+		t.Fatalf("from_chat_id param not normalized: %#v", got)
+	}
+
 	if !reflect.DeepEqual(method.Notes, []string{"Only works in supergroups."}) {
 		t.Fatalf("unexpected notes: %#v", method.Notes)
 	}
@@ -107,178 +103,6 @@ func TestParseMethodErrors(t *testing.T) {
 			t.Fatalf("expected ErrReturnTypeNotParsed, got %v", err)
 		}
 	})
-}
-
-func TestParseType(t *testing.T) {
-	doc := mustDoc(t, `
-		<html><body>
-		<h3>Available types</h3>
-		<h4><a class="anchor" name="mytype"></a>MyType</h4>
-		<p>The primary description.</p>
-		<ul><li>Bullet item</li></ul>
-		<ol><li>Ordered item</li></ol>
-		<table>
-		  <tbody>
-		    <tr><td> </td><td>String</td><td>Ignored</td></tr>
-		    <tr><td>chat_id</td><td>String</td><td>Optional. Target chat</td></tr>
-		    <tr><td>count</td><td>Integer</td><td>Number of items</td></tr>
-		  </tbody>
-		</table>
-		<blockquote><p>Note text.</p></blockquote>
-		<h4>Other</h4>
-		</body></html>
-	`)
-
-	typeDef, err := ParseType(doc, "mytype")
-	if err != nil {
-		t.Fatalf("ParseType returned error: %v", err)
-	}
-
-	if typeDef.Tag != "Available types" {
-		t.Fatalf("expected tag, got %q", typeDef.Tag)
-	}
-
-	if got := len(typeDef.Description); got != 3 {
-		t.Fatalf("expected three description entries, got %d", got)
-	}
-
-	if got := len(typeDef.Fields); got != 2 {
-		t.Fatalf("expected two fields, got %d", got)
-	}
-
-	fields := typeDef.Fields
-	if fields[0].Name != "chat_id" || fields[0].TypeRef.RawType != "Integer" || fields[0].Required {
-		t.Fatalf("chat_id field not normalized: %#v", fields[0])
-	}
-
-	if !fields[1].Required {
-		t.Fatalf("expected second field to be required")
-	}
-
-	if !reflect.DeepEqual(typeDef.Notes, []string{"Note text."}) {
-		t.Fatalf("unexpected notes: %#v", typeDef.Notes)
-	}
-}
-
-func TestParseTypeMissingAnchor(t *testing.T) {
-	doc := mustDoc(t, `<html><body><h4><a class="anchor" name="other"></a>Other</h4></body></html>`)
-
-	_, err := ParseType(doc, "missing")
-	if !errors.Is(err, ErrElementNotFound) {
-		t.Fatalf("expected ErrElementNotFound, got %v", err)
-	}
-}
-
-func TestParseTypeStopsAtNextHeader(t *testing.T) {
-	doc := mustDoc(t, `
-		<html><body>
-		<h4><a class="anchor" name="simple"></a>Simple</h4>
-		<p>First description.</p>
-		<h4><a class="anchor" name="second"></a>Second</h4>
-		<table><tbody><tr><td>name</td><td>String</td><td>Optional info</td></tr></tbody></table>
-		</body></html>
-	`)
-
-	typeDef, err := ParseType(doc, "simple")
-	if err != nil {
-		t.Fatalf("ParseType returned error: %v", err)
-	}
-
-	if len(typeDef.Description) != 1 {
-		t.Fatalf("expected description to stop before next header, got %#v", typeDef.Description)
-	}
-}
-
-func TestParseNavAndAllNavs(t *testing.T) {
-	doc := mustDoc(t, `
-		<html><body>
-		<h3><a class="anchor" name="methods"></a>Methods</h3>
-		<h4><a class="anchor" name="getme"></a>getMe</h4>
-		<h4><a class="anchor" name="Sticker"></a>Sticker</h4>
-		<h4><a class="anchor" name="double"></a>double word</h4>
-		<h3><a class="anchor" name="types"></a>Types</h3>
-		<h4><a class="anchor" name="user"></a>User</h4>
-		</body></html>
-	`)
-
-	methods := ParseNav(doc, "methods")
-	if len(methods) != 2 {
-		t.Fatalf("expected 2 entries, got %d", len(methods))
-	}
-
-	if methods[0].Mode != ParseModeMethod || methods[1].Mode != ParseModeType {
-		t.Fatalf("unexpected modes: %#v", methods)
-	}
-
-	targets := ParseAllNavs(doc, []string{"methods", "types"})
-	if len(targets) != 3 {
-		t.Fatalf("expected 3 combined targets, got %d", len(targets))
-	}
-}
-
-func TestParseNavLists(t *testing.T) {
-	doc := mustDoc(t, `
-		<html><body>
-		<a data-target="#TypeOne">TypeOne</a>
-		<a data-target="#methodOne">methodOne</a>
-		<a data-target="#type-two">skip-me</a>
-		<a data-target="external">External</a>
-		<a data-target="#Blank">   </a>
-		<a data-target="#   ">Whitespace</a>
-		<a data-target="#">EmptyAnchor</a>
-		<a>NoAttr</a>
-		<ul class="nav navbar-nav navbar-default affix">
-		  <li><a href="#Additional">Additional</a></li>
-		  <li><a href="#TypeOne">Duplicate</a></li>
-		  <li><a href="  ">No anchor</a></li>
-		  <li><a href="#">Hash only</a></li>
-		</ul>
-		</body></html>
-	`)
-
-	list := ParseNavLists(doc)
-	if len(list) != 3 {
-		t.Fatalf("expected 3 unique targets, got %d", len(list))
-	}
-
-	modes := map[string]ParseMode{}
-	for _, target := range list {
-		modes[target.Name] = target.Mode
-		if target.Anchor == "type-two" {
-			t.Fatalf("expected anchors with dash to be skipped")
-		}
-	}
-
-	if modes["TypeOne"] != ParseModeType {
-		t.Fatalf("TypeOne should be ParseModeType")
-	}
-
-	if modes["methodOne"] != ParseModeMethod {
-		t.Fatalf("methodOne should be ParseModeMethod")
-	}
-}
-
-func TestParseNavListsIgnoresEmptyAnchors(t *testing.T) {
-	doc := mustDoc(
-		t,
-		`<html><body>
-<a data-target="#">Blank</a>
-<ul class="nav navbar-nav navbar-default affix"><li><a href="">Empty</a></li></ul>
-</body></html>`,
-	)
-	if targets := ParseNavLists(doc); len(targets) != 0 {
-		t.Fatalf("expected no targets, got %#v", targets)
-	}
-}
-
-func TestParseNavListsSkipsHyphenAnchors(t *testing.T) {
-	doc := mustDoc(
-		t,
-		`<html><body><a data-target="#type-two">type-two</a></body></html>`,
-	)
-	if targets := ParseNavLists(doc); len(targets) != 0 {
-		t.Fatalf("expected anchors with hyphen to be skipped, got %#v", targets)
-	}
 }
 
 func TestSplitIntoSentences(t *testing.T) {
@@ -436,20 +260,6 @@ func TestParseIsReturnedClauseVariants(t *testing.T) {
 	}
 }
 
-func TestIsFirstLetterCapital(t *testing.T) {
-	if !isFirstLetterCapital("Type") {
-		t.Fatalf("expected Type to be capitalized")
-	}
-
-	if isFirstLetterCapital("method") {
-		t.Fatalf("expected method to be lowercase")
-	}
-
-	if isFirstLetterCapital("") {
-		t.Fatalf("empty string should return false")
-	}
-}
-
 func TestExtractReturnTypeFromSentenceHelpers(t *testing.T) {
 	if extractReturnTypeFromSentence("") != "" {
 		t.Fatalf("expected empty result for blank sentence")
@@ -480,104 +290,142 @@ func TestExtractReturnTypeFromSentenceHelpers(t *testing.T) {
 	}
 }
 
-func TestIsOptionalDescription(t *testing.T) {
+func TestExtractReturnType(t *testing.T) { //nolint:funlen // large table ensures coverage of phrasing variants
 	cases := []struct {
-		input string
-		want  bool
+		name     string
+		paras    []string
+		expected string
 	}{
-		{"Optional. Extra", true},
-		{" optional parameter", true},
-		{"Required", false},
-		{"", false},
+		{
+			name: "Returns an Array of Update objects",
+			paras: []string{
+				"Use this method to receive incoming updates using long polling. " +
+					"Returns an Array of Update objects.",
+			},
+			expected: "Array of Update",
+		},
+		{
+			name:     "Returns True on success",
+			paras:    []string{"Returns True on success."},
+			expected: "True",
+		},
+		{
+			name:     "Skips blank paragraphs",
+			paras:    []string{"   ", "Returns Boolean."},
+			expected: "Boolean",
+		},
+		{
+			name:     "On success, returns a WebhookInfo object",
+			paras:    []string{"On success, returns a WebhookInfo object."},
+			expected: "WebhookInfo",
+		},
+		{
+			name:     "Returns StarAmount on success",
+			paras:    []string{"Returns StarAmount on success."},
+			expected: "StarAmount",
+		},
+		{
+			name:     "Returns StickerSet without qualifier",
+			paras:    []string{"Returns StickerSet."},
+			expected: "StickerSet",
+		},
+		{
+			name: "On success, the sent Message is returned",
+			paras: []string{
+				"Use this method to send text messages. On success, the sent Message is returned.",
+			},
+			expected: "Message",
+		},
+		{
+			name:     "Returns the MessageId of the sent message",
+			paras:    []string{"Returns the MessageId of the sent message on success."},
+			expected: "MessageId",
+		},
+		{
+			name:     "No return info",
+			paras:    []string{"Use this method to configure webhook parameters."},
+			expected: "",
+		},
+		{
+			name: "On success array of MessageId",
+			paras: []string{
+				"On success, an array of MessageId of the sent messages is returned.",
+			},
+			expected: "Array of MessageId",
+		},
+		{
+			name:     "On success returns array",
+			paras:    []string{"On success, returns Array of Sticker objects."},
+			expected: "Array of Sticker",
+		},
+		{
+			name:     "NBSP between success and returns",
+			paras:    []string{"On success\u00a0returns Message."},
+			expected: "Message",
+		},
+		{
+			name:     "Returns link as String",
+			paras:    []string{"Returns the created invoice link as String on success."},
+			expected: "String",
+		},
+		{
+			name:     "Returns user info in form of object",
+			paras:    []string{"Returns basic information about the bot in form of a User object."},
+			expected: "User",
+		},
+		{
+			name:     "Returns information about created topic",
+			paras:    []string{"Returns information about the created topic as a ForumTopic object."},
+			expected: "ForumTopic",
+		},
+		{
+			name: "Conditional return message or true",
+			paras: []string{
+				"On success, if the message is not an inline message, the Message is returned, otherwise True is returned.",
+			},
+			expected: "Message or True",
+		},
+		{
+			name:     "On success stopped poll returned",
+			paras:    []string{"On success, the stopped Poll is returned."},
+			expected: "Poll",
+		},
+		{
+			name:     "On success returns array no comma",
+			paras:    []string{"On success returns Array of Sticker."},
+			expected: "Array of Sticker",
+		},
+		{
+			name:     "Returns Poll upon success",
+			paras:    []string{"Returns Poll upon success."},
+			expected: "Poll",
+		},
+		{
+			name:     "Returns Message when condition",
+			paras:    []string{"Returns Message when the user is online."},
+			expected: "Message",
+		},
+		{
+			name:     "Message are returned",
+			paras:    []string{"On success, Messages are returned."},
+			expected: "Messages",
+		},
+		{
+			name:     "Returns Message with parentheses",
+			paras:    []string{"Returns Message (see docs) on success."},
+			expected: "Message",
+		},
+		{
+			name:     "Returns info in the form of",
+			paras:    []string{"On success, returns information about the chat in the form of an ChatFullInfo object."},
+			expected: "ChatFullInfo",
+		},
 	}
+
 	for _, tc := range cases {
-		if got := isOptionalDescription(tc.input); got != tc.want {
-			t.Fatalf("isOptionalDescription(%q) = %v, want %v", tc.input, got, tc.want)
+		got := extractReturnType(tc.paras)
+		if got != tc.expected {
+			t.Fatalf("%s: expected %q, got %q", tc.name, tc.expected, got)
 		}
-	}
-}
-
-//nolint:cyclop,funlen // exhaustive assertions for union parsing
-func TestTypeRefUnionAndSpec(t *testing.T) {
-	if parts := NewTypeRef("Sticker or Photo").UnionParts(); !reflect.DeepEqual(parts, []string{"Sticker", "Photo"}) {
-		t.Fatalf("unexpected union parts: %#v", parts)
-	}
-
-	if parts := NewTypeRef("Sticker and Photo").UnionParts(); !reflect.DeepEqual(parts, []string{"Sticker", "Photo"}) {
-		t.Fatalf("unexpected union parts for and: %#v", parts)
-	}
-
-	if parts := NewTypeRef("One, Two and Three").UnionParts(); !reflect.DeepEqual(parts, []string{"One", "Two", "Three"}) {
-		t.Fatalf("unexpected union parts for comma list: %#v", parts)
-	}
-
-	if parts := NewTypeRef("One, , Three").UnionParts(); !reflect.DeepEqual(parts, []string{"One", "Three"}) {
-		t.Fatalf("expected blank entries skipped, got %#v", parts)
-	}
-
-	if NewTypeRef("Sticker").UnionParts() != nil {
-		t.Fatalf("expected nil union for single value")
-	}
-
-	if NewTypeRef(" ").UnionParts() != nil {
-		t.Fatalf("expected nil union for blank input")
-	}
-
-	if NewTypeRef("One or ").UnionParts() != nil {
-		t.Fatalf("expected nil union when second part missing")
-	}
-
-	if NewTypeRef("One, Two").UnionParts() == nil {
-		t.Fatalf("expected union for comma-separated pair")
-	}
-
-	spec := NewTypeRef("Array of Message").ToTypeSpec()
-	if spec.Type != "array" || spec.Items == nil || spec.Items.Ref == nil || spec.Items.Ref.Name != "Message" {
-		t.Fatalf("array spec unexpected: %#v", spec)
-	}
-
-	spec = NewTypeRef("Array of Array of Sticker").ToTypeSpec()
-	if spec.Type != "array" || spec.Items == nil || spec.Items.Type != "array" {
-		t.Fatalf("nested array spec unexpected: %#v", spec)
-	}
-
-	spec = NewTypeRef("array of array of Sticker").ToTypeSpec()
-	if spec.Type != "array" {
-		t.Fatalf("expected array type for lowercase phrasing, got %#v", spec)
-	}
-
-	spec = NewTypeRef("Integer").ToTypeSpec()
-	if spec.Type != "integer" {
-		t.Fatalf("primitive spec unexpected: %#v", spec)
-	}
-
-	spec = NewTypeRef("int64").ToTypeSpec()
-	if spec.Format != "int64" {
-		t.Fatalf("expected int64 format, got %#v", spec)
-	}
-
-	spec = NewTypeRef("string").ToTypeSpec()
-	if spec.Type != "string" {
-		t.Fatalf("expected string type, got %#v", spec)
-	}
-
-	spec = NewTypeRef("True").ToTypeSpec()
-	if spec.Default != true {
-		t.Fatalf("expected True default, got %#v", spec)
-	}
-
-	spec = NewTypeRef("Sticker or Photo").ToTypeSpec()
-	if len(spec.AnyOf) != 2 {
-		t.Fatalf("expected anyOf for union, got %#v", spec)
-	}
-
-	spec = NewTypeRef("CustomType").ToTypeSpec()
-	if spec.Ref == nil || spec.Ref.Name != "CustomType" {
-		t.Fatalf("expected ref for custom type, got %#v", spec)
-	}
-
-	spec = (*TypeRef)(nil).ToTypeSpec()
-	if spec.Type != "" || spec.Ref != nil {
-		t.Fatalf("expected empty spec for nil TypeRef")
 	}
 }

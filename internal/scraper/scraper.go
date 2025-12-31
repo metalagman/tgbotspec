@@ -16,11 +16,14 @@ import (
 
 var fetchDocument = fetcher.Document
 
+// Options configures the scraper behavior.
+type Options struct {
+	MergeUnionTypes bool
+}
+
 // Run orchestrates fetching the Telegram Bot API docs, parsing them, and
 // rendering the OpenAPI specification to the provided writer.
-//
-//nolint:cyclop,funlen // orchestration covers multiple branches
-func Run(w io.Writer) error {
+func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 	doc, err := fetchDocument()
 	if err != nil {
 		return fmt.Errorf("fetch document: %w", err)
@@ -45,6 +48,14 @@ func Run(w io.Writer) error {
 		Version: apiVersion,
 	}
 
+	// Pre-populate valid types for union merging validation
+	validTypes := make(map[string]struct{}, len(typeTargets))
+	for _, t := range typeTargets {
+		validTypes[t.Name] = struct{}{}
+	}
+
+	validTypes["ResponseParameters"] = struct{}{}
+
 	seenTypes := make(map[string]struct{}, len(typeTargets))
 
 	for _, t := range typeTargets {
@@ -64,11 +75,16 @@ func Run(w io.Writer) error {
 			Description: t.Description,
 		}
 		for _, field := range t.Fields {
+			s := field.TypeRef.ToTypeSpec()
+			if opts.MergeUnionTypes {
+				s = mergeUnionTypes(s, validTypes)
+			}
+
 			spec.Fields = append(spec.Fields, openapi.TypeField{
 				Name:        field.Name,
 				Description: field.Description,
 				Required:    field.Required,
-				Schema:      field.TypeRef.ToTypeSpec(),
+				Schema:      s,
 			})
 		}
 
@@ -105,6 +121,9 @@ func Run(w io.Writer) error {
 		}
 		if m.Return != nil {
 			method.Return = m.Return.ToTypeSpec()
+			if opts.MergeUnionTypes {
+				method.Return = mergeUnionTypes(method.Return, validTypes)
+			}
 		}
 
 		paramNames := make([]string, 0, len(m.Params))
@@ -116,11 +135,17 @@ func Run(w io.Writer) error {
 
 		for _, name := range paramNames {
 			param := m.Params[name]
+
+			s := param.TypeRef.ToTypeSpec()
+			if opts.MergeUnionTypes {
+				s = mergeUnionTypes(s, validTypes)
+			}
+
 			method.Params = append(method.Params, openapi.MethodParam{
 				Name:        name,
 				Description: param.Description,
 				Required:    param.Required,
-				Schema:      param.TypeRef.ToTypeSpec(),
+				Schema:      s,
 			})
 
 			if requiresMultipart(param.TypeRef) {
@@ -136,6 +161,67 @@ func Run(w io.Writer) error {
 	}
 
 	return nil
+}
+
+func mergeUnionTypes(spec *openapi.TypeSpec, validTypes map[string]struct{}) *openapi.TypeSpec {
+	if spec == nil {
+		return nil
+	}
+
+	// Recursive check for Array items
+	if spec.Type == "array" && spec.Items != nil {
+		spec.Items = mergeUnionTypes(spec.Items, validTypes)
+
+		return spec
+	}
+
+	if len(spec.AnyOf) == 0 {
+		return spec
+	}
+
+	// Check if all are refs
+	refNames := make([]string, 0, len(spec.AnyOf))
+
+	for _, item := range spec.AnyOf {
+		if item.Ref == nil || item.Ref.Name == "" {
+			return spec // Contains non-ref, skip
+		}
+
+		refNames = append(refNames, item.Ref.Name)
+	}
+
+	// Find common prefix
+	common := commonPrefix(refNames)
+	if common == "" {
+		return spec
+	}
+
+	// Verify if common prefix is a valid type
+	if _, ok := validTypes[common]; ok {
+		return &openapi.TypeSpec{
+			Ref: &openapi.TypeRef{Name: common},
+		}
+	}
+
+	return spec
+}
+
+func commonPrefix(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+
+	prefix := names[0]
+	for _, name := range names[1:] {
+		for !strings.HasPrefix(name, prefix) {
+			prefix = prefix[:len(prefix)-1]
+			if prefix == "" {
+				return ""
+			}
+		}
+	}
+
+	return prefix
 }
 
 func splitTargets(targets []parser.ParseTarget, doc *goquery.Document) ([]parser.TypeDef, []parser.MethodDef) {

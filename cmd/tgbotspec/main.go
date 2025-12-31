@@ -15,7 +15,10 @@ var (
 )
 
 func newRootCmd() *cobra.Command {
-	var outputPath string
+	var (
+		outputPath      string
+		mergeUnionTypes bool
+	)
 
 	cmd := &cobra.Command{
 		Use:          "tgbotspec",
@@ -39,7 +42,11 @@ func newRootCmd() *cobra.Command {
 				output = file
 			}
 
-			if err := runScraper(output); err != nil {
+			opts := scraper.Options{
+				MergeUnionTypes: mergeUnionTypes,
+			}
+
+			if err := runScraper(output, opts); err != nil {
 				return fmt.Errorf("run scraper: %w", err)
 			}
 
@@ -48,6 +55,8 @@ func newRootCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "Write output to file instead of stdout")
+	cmd.Flags().BoolVar(&mergeUnionTypes, "merge-union-types", false,
+		"Merge union types (made only from refs) into one type")
 
 	return cmd
 }
