@@ -6,11 +6,13 @@ import (
 	"io"
 	"os"
 	"testing"
+
+	"github.com/metalagman/tgbotspec/internal/scraper"
 )
 
 func TestNewRootCmd(t *testing.T) {
 	originalRun := runScraper
-	runScraper = func(w io.Writer) error {
+	runScraper = func(w io.Writer, opts scraper.Options) error {
 		if w == nil {
 			t.Fatal("expected writer to be non-nil")
 		}
@@ -45,7 +47,7 @@ func TestNewRootCmd(t *testing.T) {
 
 func TestNewRootCmdOutputFlag(t *testing.T) {
 	originalRun := runScraper
-	runScraper = func(w io.Writer) error {
+	runScraper = func(w io.Writer, opts scraper.Options) error {
 		if w == nil {
 			t.Fatal("expected writer to be non-nil")
 		}
@@ -107,7 +109,7 @@ func TestMainSuccess(t *testing.T) {
 	originalExit := exit
 	originalArgs := os.Args
 
-	runScraper = func(w io.Writer) error {
+	runScraper = func(w io.Writer, opts scraper.Options) error {
 		return nil
 	}
 
@@ -136,7 +138,7 @@ func TestMainExitOnError(t *testing.T) {
 	originalExit := exit
 	originalArgs := os.Args
 
-	runScraper = func(w io.Writer) error {
+	runScraper = func(w io.Writer, opts scraper.Options) error {
 		return errors.New("boom")
 	}
 
