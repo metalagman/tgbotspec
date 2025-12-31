@@ -2,6 +2,8 @@ openapi: 3.0.0
 info:
   title: "{{ .Title }}"
   version: "{{ .Version }}"
+  description: |-
+    This OpenAPI specification was generated using the [tgbotspec](https://github.com/metalagman/tgbotspec) tool.
 servers:
   - url: "https://api.telegram.org/bot{botToken}"
     description: Telegram Bot API endpoint; substitute {botToken} with your bot token.
@@ -26,27 +28,28 @@ paths:
         {{- range .Description}}
         {{ . }}
         {{- end}}
+      {{- if .Params }}
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              {{- if .Params }}
               properties:
                 {{- range .Params}}
+                {{- if not (isPureBinary .Schema) }}
                 {{ .Name }}:
-{{ indent 18 (renderSchema .Schema) }}
+{{ indent 18 (renderJSONSchema .Schema) }}
                 {{- end}}
-              {{- end}}
+                {{- end}}
               {{- $req := false }}
               {{- range .Params}}
-              {{- if .Required }}{{ $req = true }}{{- end}}
+              {{- if and .Required (not (isPureBinary .Schema)) }}{{ $req = true }}{{- end}}
               {{- end}}
               {{- if $req}}
               required:
                 {{- range .Params}}
-                {{- if .Required}}
+                {{- if and .Required (not (isPureBinary .Schema)) }}
                 - {{ .Name }}
                 {{- end}}
                 {{- end}}
@@ -55,13 +58,11 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              {{- if .Params }}
               properties:
                 {{- range .Params}}
                 {{ .Name }}:
-{{ indent 18 (renderSchema .Schema) }}
+{{ indent 18 (renderMultipartSchema .Schema) }}
                 {{- end}}
-              {{- end}}
               {{- $req := false }}
               {{- range .Params}}
               {{- if .Required }}{{ $req = true }}{{- end}}
@@ -75,6 +76,7 @@ paths:
                 {{- end}}
               {{- end}}
           {{- end}}
+      {{- end}}
       responses:
         '200':
           description: OK

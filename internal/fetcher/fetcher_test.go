@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/jarcoal/httpmock"
@@ -116,6 +117,52 @@ func TestHTMLFetchesAndCaches(t *testing.T) {
 	}
 }
 
+func TestHTMLCacheExpired(t *testing.T) {
+	tmpDir := useTempWorkDir(t)
+
+	origURL := fetchURL
+	origNewClient := newRestyClient
+	fetchURL = "https://example.com/expired"
+	
+	client := resty.New()
+	httpmock.ActivateNonDefault(client.GetClient())
+	t.Cleanup(httpmock.DeactivateAndReset)
+
+	newRestyClient = func() *resty.Client { return client }
+
+	t.Cleanup(func() {
+		fetchURL = origURL
+		newRestyClient = origNewClient
+	})
+
+	// Create an expired cache file
+	cachePath := filepath.Join(tmpDir, cacheFile)
+	if err := os.WriteFile(cachePath, []byte("old"), 0o644); err != nil {
+		t.Fatalf("write cache: %v", err)
+	}
+
+	oldTime := time.Now().Add(-cacheLimit - time.Hour)
+	if err := os.Chtimes(cachePath, oldTime, oldTime); err != nil {
+		t.Fatalf("chtimes: %v", err)
+	}
+
+	const body = "fresh"
+	httpmock.RegisterResponder("GET", fetchURL, httpmock.NewStringResponder(200, body))
+
+	data, err := HTML()
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+
+	if string(data) != body {
+		t.Errorf("expected fresh body, got %q", string(data))
+	}
+
+	if httpmock.GetTotalCallCount() != 1 {
+		t.Error("expected network call for expired cache")
+	}
+}
+
 func TestHTMLFetchError(t *testing.T) {
 	useTempWorkDir(t)
 
@@ -146,4 +193,51 @@ func TestHTMLFetchError(t *testing.T) {
 	if _, err := os.Stat(cacheFile); !os.IsNotExist(err) {
 		t.Fatalf("expected no cache file on fetch failure, stat err = %v", err)
 	}
+}
+
+func TestHTMLReadCacheError(t *testing.T) {
+	tmpDir := useTempWorkDir(t)
+
+	// Create a directory with the cache file name to cause ReadFile to fail
+	if err := os.Mkdir(cacheFile, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	if _, err := HTML(); err == nil {
+		t.Fatal("expected error reading cache directory as file")
+	}
+	
+	// Cleanup for other tests
+	os.RemoveAll(filepath.Join(tmpDir, cacheFile))
+}
+
+func TestHTMLWriteCacheError(t *testing.T) {
+	tmpDir := useTempWorkDir(t)
+
+	origURL := fetchURL
+	origNewClient := newRestyClient
+	fetchURL = "https://example.com/write-fail"
+	client := resty.New()
+	httpmock.ActivateNonDefault(client.GetClient())
+	t.Cleanup(httpmock.DeactivateAndReset)
+
+	newRestyClient = func() *resty.Client { return client }
+
+	t.Cleanup(func() {
+		fetchURL = origURL
+		newRestyClient = origNewClient
+	})
+
+	httpmock.RegisterResponder("GET", fetchURL, httpmock.NewStringResponder(200, "data"))
+
+	// Create a directory where the file should be written to cause WriteFile to fail
+	if err := os.Mkdir(cacheFile, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	if _, err := HTML(); err == nil {
+		t.Fatal("expected error writing cache to a directory")
+	}
+
+	os.RemoveAll(filepath.Join(tmpDir, cacheFile))
 }

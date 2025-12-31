@@ -11,11 +11,10 @@ OpenAPI template in `internal/openapi/openapi.yaml.gotmpl`.
 - Reference relevant issue IDs in commits or PRs when applicable (e.g. `Fix #42`).
 
 ## Preferred Workflow
-- Use Go **1.24+**. When running the generator inside sandboxes, set
-  `GOCACHE=$(pwd)/.gocache go run ./cmd/tgbotspec` to avoid permission issues with
-  the default build cache.
+- Use Go **1.24+**.
 - A `Taskfile.yml` is available: `task`, `task parse`, and `task parse:save` all run
-  the generator; the latter writes to `openapi.generated.yaml`.
+  the generator; the latter writes to `openapi.generated.yaml`. Use `task validate`
+  to verify the generated spec against the OpenAPI 3.0 schema (requires Docker).
 - The scraper relies on `spec_cache.html` to work offline. If the network is blocked,
   `touch spec_cache.html` before running the generator so the cached copy is used.
 
@@ -29,12 +28,15 @@ OpenAPI template in `internal/openapi/openapi.yaml.gotmpl`.
 ## Linting & Tests
 - Lint locally with:
   ```bash
-  GOCACHE=$(pwd)/.cache/go-build golangci-lint run ./...
+  go tool golangci-lint run ./...
   ```
 - Run the full test suite with coverage before pushing:
   ```bash
-  mkdir -p .cache/go-build
-  GOCACHE=$(pwd)/.cache/go-build go test -coverprofile=coverage.out -covermode=atomic ./...
+  go test -coverprofile=coverage.out -covermode=atomic ./...
+  ```
+- Validate the generated OpenAPI specification:
+  ```bash
+  task parse:save && task validate
   ```
 - Maintain or improve coverage; avoid introducing untested files unless impossible,
   and call it out in the PR.

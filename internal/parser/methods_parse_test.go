@@ -20,36 +20,31 @@ func mustDoc(t *testing.T, html string) *goquery.Document {
 	return doc
 }
 
-//nolint:cyclop,funlen // comprehensive table checks parsing branches
+//nolint:cyclop // comprehensive table checks parsing branches
 func TestParseMethodSuccess(t *testing.T) {
 	doc := mustDoc(t, `
 		<html><body>
 		<h3>Messaging API</h3>
-		<h4>
-		  <a class="anchor" name="testmethod"></a>testMethod
-		  <div>
-		    <table>
-		      <tbody>
-		        <tr>
-		          <td>chat_id</td>
-		          <td>String</td>
-		          <td>Optional field</td>
-		          <td>Optional. Chat identifier</td>
-		        </tr>
-		        <tr>
-		          <td>limit</td>
-		          <td>Integer</td>
-		          <td>Maximum number of items to return</td>
-		          <td>Limit description</td>
-		        </tr>
-		      </tbody>
-		    </table>
-		    <blockquote><p>Only works in supergroups.</p></blockquote>
-		  </div>
-		</h4>
-		<table class="table"><tbody><tr><td>ignored</td></tr></tbody></table>
+		<h4><a class="anchor" name="testmethod"></a>testMethod</h4>
 		<p>Use this method to do something useful. Returns the created invoice link as String on success.</p>
 		<p>Second line of the description.</p>
+		<table class="table">
+		  <tbody>
+			<tr>
+			  <td>chat_id</td>
+			  <td>String</td>
+			  <td>Optional field</td>
+			  <td>Optional. Chat identifier</td>
+			</tr>
+			<tr>
+			  <td>limit</td>
+			  <td>Integer</td>
+			  <td>Maximum number of items to return</td>
+			  <td>Limit description</td>
+			</tr>
+		  </tbody>
+		</table>
+		<blockquote><p>Only works in supergroups.</p></blockquote>
 		<h4><a class="anchor" name="next"></a>next</h4>
 		</body></html>
 	`)

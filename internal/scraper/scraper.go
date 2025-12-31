@@ -52,6 +52,10 @@ func Run(w io.Writer) error {
 			continue
 		}
 
+		if t.Name == "InputFile" {
+			continue
+		}
+
 		seenTypes[t.Name] = struct{}{}
 
 		spec := openapi.Type{

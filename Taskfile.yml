@@ -39,14 +39,13 @@ tasks:
   lint:
     desc: Run golangci-lint against the project
     cmds:
-      - go tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint run ./...
+      - go tool golangci-lint run ./...
 
   test:
     desc: Run go test with coverage and print the summary to the console
     cmds:
-      - mkdir -p .cache/go-build
-      - GOCACHE=$(pwd)/.cache/go-build go test -coverprofile=coverage.out -covermode=atomic ./...
-      - GOCACHE=$(pwd)/.cache/go-build go tool cover -func=coverage.out
+      - go test -coverprofile=coverage.out -covermode=atomic ./...
+      - go tool cover -func=coverage.out
 
   image:build:
     desc: Build the tgbotspec container image
