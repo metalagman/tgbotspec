@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-//nolint:cyclop // comprehensive table checks parsing branches
+//nolint:cyclop,funlen // comprehensive table checks parsing branches
 func TestParseMethodSuccess(t *testing.T) {
 	doc := mustDoc(t, `
 		<html><body>
@@ -27,6 +27,12 @@ func TestParseMethodSuccess(t *testing.T) {
 			  <td>Integer</td>
 			  <td>Maximum number of items to return</td>
 			  <td>Limit description</td>
+			</tr>
+			<tr>
+			  <td>from_chat_id</td>
+			  <td>Integer or String</td>
+			  <td>Optional</td>
+			  <td>Optional. Source chat identifier</td>
 			</tr>
 		  </tbody>
 		</table>
@@ -62,6 +68,10 @@ func TestParseMethodSuccess(t *testing.T) {
 
 	if got, ok := method.Params["limit"]; !ok || got.TypeRef.RawType != "Integer" || !got.Required {
 		t.Fatalf("limit param missing required flag: %#v", got)
+	}
+
+	if got, ok := method.Params["from_chat_id"]; !ok || got.TypeRef.RawType != "Integer" || got.Required {
+		t.Fatalf("from_chat_id param not normalized: %#v", got)
 	}
 
 	if !reflect.DeepEqual(method.Notes, []string{"Only works in supergroups."}) {

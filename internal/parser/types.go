@@ -296,7 +296,7 @@ func ParseType(doc *goquery.Document, anchor string) (*TypeDef, error) {
 			return
 		}
 		// Force chat_id to be Integer regardless of parsed union or other forms
-		if fieldDef.Name == "chat_id" {
+		if fieldDef.Name == "chat_id" || strings.HasSuffix(fieldDef.Name, "_chat_id") {
 			fieldDef.TypeRef = NewTypeRef("Integer")
 		}
 

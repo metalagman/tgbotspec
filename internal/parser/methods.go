@@ -116,7 +116,7 @@ func ParseMethod(doc *goquery.Document, anchor string) (*MethodDef, error) {
 		def.Required = !isOptionalDescription(def.Description)
 
 		// Force chat_id to be Integer for method parameters as well
-		if name == "chat_id" {
+		if name == "chat_id" || strings.HasSuffix(name, "_chat_id") {
 			def.TypeRef = NewTypeRef("Integer")
 		}
 

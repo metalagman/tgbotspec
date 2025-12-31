@@ -6,6 +6,7 @@ import (
 	"testing"
 )
 
+//nolint:cyclop // assertions for fields increase complexity
 func TestParseType(t *testing.T) {
 	doc := mustDoc(t, `
 		<html><body>
@@ -19,6 +20,7 @@ func TestParseType(t *testing.T) {
 		    <tr><td> </td><td>String</td><td>Ignored</td></tr>
 		    <tr><td>chat_id</td><td>String</td><td>Optional. Target chat</td></tr>
 		    <tr><td>count</td><td>Integer</td><td>Number of items</td></tr>
+		    <tr><td>target_chat_id</td><td>Integer or String</td><td>Optional. Target chat</td></tr>
 		  </tbody>
 		</table>
 		<blockquote><p>Note text.</p></blockquote>
@@ -39,8 +41,8 @@ func TestParseType(t *testing.T) {
 		t.Fatalf("expected three description entries, got %d", got)
 	}
 
-	if got := len(typeDef.Fields); got != 2 {
-		t.Fatalf("expected two fields, got %d", got)
+	if got := len(typeDef.Fields); got != 3 {
+		t.Fatalf("expected three fields, got %d", got)
 	}
 
 	fields := typeDef.Fields
@@ -50,6 +52,10 @@ func TestParseType(t *testing.T) {
 
 	if !fields[1].Required {
 		t.Fatalf("expected second field to be required")
+	}
+
+	if fields[2].Name != "target_chat_id" || fields[2].TypeRef.RawType != "Integer" || fields[2].Required {
+		t.Fatalf("target_chat_id field not normalized: %#v", fields[2])
 	}
 
 	if !reflect.DeepEqual(typeDef.Notes, []string{"Note text."}) {
