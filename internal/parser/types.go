@@ -13,7 +13,7 @@ const (
 	fieldNameColumnIndex        = 0
 	fieldTypeColumnIndex        = 1
 	fieldDescriptionColumnIndex = 2
-	minUnionParts               = 2
+	MinUnionParts               = 2
 )
 
 // TypeRef represents a raw type string from the Telegram docs and helpers to
@@ -63,7 +63,7 @@ func (t *TypeRef) UnionParts() []string {
 		res = append(res, p)
 	}
 
-	if len(res) < minUnionParts {
+	if len(res) < MinUnionParts {
 		return nil
 	}
 
@@ -189,7 +189,7 @@ func (t *TypeRef) tryParseUnion() *openapi.TypeSpec {
 		elements = append(elements, spec)
 	}
 
-	if len(elements) >= minUnionParts {
+	if len(elements) >= MinUnionParts {
 		return &openapi.TypeSpec{OneOf: elements}
 	}
 

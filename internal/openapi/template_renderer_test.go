@@ -247,6 +247,7 @@ func TestRenderTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("regex error: %v", err)
 	}
+
 	if !matched {
 		t.Errorf("expected photo as string in JSON section. Output:\n%s", out)
 	}

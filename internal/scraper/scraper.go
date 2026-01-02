@@ -163,6 +163,7 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 	return nil
 }
 
+//nolint:cyclop,funlen // merging logic has many branches and is slightly long
 func mergeUnionTypes(spec *openapi.TypeSpec, validTypes map[string]struct{}) *openapi.TypeSpec {
 	if spec == nil {
 		return nil
@@ -177,6 +178,7 @@ func mergeUnionTypes(spec *openapi.TypeSpec, validTypes map[string]struct{}) *op
 
 	elements := spec.AnyOf
 	isAnyOf := true
+
 	if len(elements) == 0 {
 		elements = spec.OneOf
 		isAnyOf = false
@@ -202,8 +204,8 @@ func mergeUnionTypes(spec *openapi.TypeSpec, validTypes map[string]struct{}) *op
 	}
 
 	// We need at least 2 refs to merge anything meaningfully,
-	// unless we want to "upcast" a single ref? No, minUnionParts=2 usually.
-	if len(refs) < 2 {
+	// unless we want to "upcast" a single ref? No, MinUnionParts=2 usually.
+	if len(refs) < parser.MinUnionParts {
 		return spec
 	}
 
