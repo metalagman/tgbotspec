@@ -177,12 +177,12 @@ func TestRunMergeUnionTypes(t *testing.T) {
 	}
 
 	out := buf.String()
-	
+
 	// We expect the media parameter items to reference InputMedia directly,
 	// merging InputMediaPhoto and InputMediaVideo.
 	// Since regex in go test is verbose, we rely on the specific string being present
 	// and NOT having an anyOf block for this param.
-	
+
 	// Check for the reference
 	if !strings.Contains(out, "$ref: '#/components/schemas/InputMedia'") {
 		t.Error("expected merged reference to InputMedia in output")
@@ -310,82 +310,254 @@ func TestRequiresMultipart(t *testing.T) {
 	}
 }
 
-//nolint:cyclop,funlen
+//nolint:cyclop,funlen,maintidx
 func TestMergeUnionTypesLogic(t *testing.T) {
+
 	validTypes := map[string]struct{}{
+
 		"InputMedia": {},
 	}
 
 	// Case 1: OneOf with common prefix "InputMedia" -> Should merge
+
 	inputMediaSpec := &openapi.TypeSpec{
+
 		OneOf: []openapi.TypeSpec{
+
 			{Ref: &openapi.TypeRef{Name: "InputMediaPhoto"}},
+
 			{Ref: &openapi.TypeRef{Name: "InputMediaVideo"}},
 		},
 	}
 
 	mergedMedia := mergeUnionTypes(inputMediaSpec, validTypes, nil)
 	if mergedMedia.Ref == nil || mergedMedia.Ref.Name != "InputMedia" {
+
 		t.Errorf("expected InputMedia merge, got %#v", mergedMedia)
+
 	}
 
 	// Case 2: OneOf with NO common prefix (ReplyMarkup) -> Should merge into generic object
+
 	replyMarkupSpec := &openapi.TypeSpec{
+
 		OneOf: []openapi.TypeSpec{
+
 			{Ref: &openapi.TypeRef{Name: "InlineKeyboardMarkup"}},
+
 			{Ref: &openapi.TypeRef{Name: "ReplyKeyboardMarkup"}},
+
 			{Ref: &openapi.TypeRef{Name: "ReplyKeyboardRemove"}},
+
 			{Ref: &openapi.TypeRef{Name: "ForceReply"}},
 		},
 	}
 
 	mergedReply := mergeUnionTypes(replyMarkupSpec, validTypes, nil)
 	if mergedReply.Type != "object" || len(mergedReply.OneOf) != 0 {
+
 		t.Errorf("expected ReplyMarkup to merge into generic object, got %#v", mergedReply)
+
 	}
 
 	// Case 3: AnyOf (primitive + ref) -> Should NOT merge
+
 	anyOfSpec := &openapi.TypeSpec{
+
 		AnyOf: []openapi.TypeSpec{
+
 			{Type: "string"},
+
 			{Ref: &openapi.TypeRef{Name: "InputMediaPhoto"}},
 		},
 	}
 
 	mergedAnyOf := mergeUnionTypes(anyOfSpec, validTypes, nil)
 	if len(mergedAnyOf.AnyOf) != 2 || mergedAnyOf.Ref != nil {
+
 		t.Errorf("expected AnyOf mixed to NOT merge, got %#v", mergedAnyOf)
+
 	}
 
 	// Case 4: OneOf (refs + primitive) -> Should merge refs
+
 	mixedSpec := &openapi.TypeSpec{
+
 		OneOf: []openapi.TypeSpec{
+
 			{Ref: &openapi.TypeRef{Name: "InputMediaPhoto"}},
+
 			{Ref: &openapi.TypeRef{Name: "InputMediaVideo"}},
+
 			{Type: "string"},
 		},
 	}
 
 	mergedMixed := mergeUnionTypes(mixedSpec, validTypes, nil)
+
 	// We expect OneOf with 2 elements: Ref(InputMedia) and Type(string)
 	if len(mergedMixed.OneOf) != 2 {
+
 		t.Errorf("expected mixed OneOf to merge to 2 elements, got %d", len(mergedMixed.OneOf))
+
 	}
 
 	foundRef := false
+
 	foundString := false
 
 	for _, s := range mergedMixed.OneOf {
+
 		if s.Ref != nil && s.Ref.Name == "InputMedia" {
+
 			foundRef = true
+
 		}
 
 		if s.Type == "string" {
+
 			foundString = true
+
 		}
+
 	}
 
 	if !foundRef || !foundString {
+
 		t.Errorf("expected merged mixed OneOf to contain InputMedia and string, got %#v", mergedMixed)
+
+	}
+
+	// Case 5: Recursive array merging
+
+	arraySpec := &openapi.TypeSpec{
+
+		Type: "array",
+
+		Items: &openapi.TypeSpec{
+
+			OneOf: []openapi.TypeSpec{
+
+				{Ref: &openapi.TypeRef{Name: "InputMediaPhoto"}},
+
+				{Ref: &openapi.TypeRef{Name: "InputMediaVideo"}},
+			},
+		},
+	}
+
+	mergedArray := mergeUnionTypes(arraySpec, validTypes, nil)
+	if mergedArray.Items.Ref == nil || mergedArray.Items.Ref.Name != "InputMedia" {
+
+		t.Errorf("expected recursive array merge, got %#v", mergedArray.Items)
+
+	}
+
+	// Case 6: mergeProperties with typesMap
+
+	typesMap := map[string]parser.TypeDef{
+
+		"TypeA": {
+
+			Name: "TypeA",
+
+			Fields: []parser.TypeFieldDef{
+
+				{Name: "field1", TypeRef: parser.NewTypeRef("String"), Description: "desc1"},
+			},
+		},
+
+		"TypeB": {
+
+			Name: "TypeB",
+
+			Fields: []parser.TypeFieldDef{
+
+				{Name: "field2", TypeRef: parser.NewTypeRef("Integer"), Description: "desc2"},
+			},
+		},
+	}
+
+	unionNoPrefix := &openapi.TypeSpec{
+
+		OneOf: []openapi.TypeSpec{
+
+			{Ref: &openapi.TypeRef{Name: "TypeA"}},
+
+			{Ref: &openapi.TypeRef{Name: "TypeB"}},
+		},
+	}
+
+	mergedProps := mergeUnionTypes(unionNoPrefix, nil, typesMap)
+	if mergedProps.Type != "object" || len(mergedProps.Properties) != 2 {
+
+		t.Errorf("expected merged properties, got %#v", mergedProps)
+
+	}
+
+	if mergedProps.Properties["field1"].Type != "string" || mergedProps.Properties["field1"].Description != "desc1" {
+
+		t.Errorf("expected field1 in merged properties, got %#v", mergedProps.Properties["field1"])
+
+	}
+
+	// Case 7: tryMergeByPrefix with invalid prefix
+
+	invalidPrefixSpec := &openapi.TypeSpec{
+
+		OneOf: []openapi.TypeSpec{
+
+			{Ref: &openapi.TypeRef{Name: "InvalidA"}},
+
+			{Ref: &openapi.TypeRef{Name: "InvalidB"}},
+		},
+	}
+
+	// "Invalid" is the common prefix but it's not in validTypes
+
+	mergedInvalid := mergeUnionTypes(invalidPrefixSpec, validTypes, nil)
+	if mergedInvalid.Type != "object" {
+
+		t.Errorf("expected fallback to generic object for invalid prefix, got %#v", mergedInvalid)
+
+	}
+
+	// Case 8: nil input
+	if mergeUnionTypes(nil, nil, nil) != nil {
+
+		t.Error("expected nil for nil input")
+
+	}
+
+	// Case 9: commonPrefix edge cases
+	if cp := commonPrefix(nil); cp != "" {
+
+		t.Errorf("expected empty prefix for nil, got %q", cp)
+
+	}
+	if cp := commonPrefix([]string{"Single"}); cp != "Single" {
+
+		t.Errorf("expected Single prefix for single element, got %q", cp)
+
+	}
+
+	// Case 10: tryMergeByPrefix with AnyOf
+
+	anyOfPrefixSpec := &openapi.TypeSpec{
+
+		AnyOf: []openapi.TypeSpec{
+
+			{Ref: &openapi.TypeRef{Name: "InputMediaPhoto"}},
+
+			{Ref: &openapi.TypeRef{Name: "InputMediaVideo"}},
+
+			{Type: "string"},
+		},
+	}
+
+	mergedAnyOfPrefix := mergeUnionTypes(anyOfPrefixSpec, validTypes, nil)
+	if len(mergedAnyOfPrefix.AnyOf) != 2 || mergedAnyOfPrefix.AnyOf[0].Ref.Name != "InputMedia" {
+
+		t.Errorf("expected AnyOf prefix merge, got %#v", mergedAnyOfPrefix)
+
 	}
 }
