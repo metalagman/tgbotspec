@@ -97,6 +97,8 @@ func ParseMethod(doc *goquery.Document, anchor string) (*MethodDef, error) {
 		name := ""
 		def := MethodParamDef{}
 
+		var optionalValue string
+
 		tr.Find("td").Each(func(tdIndex int, td *goquery.Selection) {
 			switch tdIndex {
 			case 0:
@@ -104,16 +106,14 @@ func ParseMethod(doc *goquery.Document, anchor string) (*MethodDef, error) {
 			case paramTypeColumnIndex:
 				def.TypeRef = NewTypeRef(td.Text())
 			case paramOptionalColumnIndex:
-				// Previously used the "Yes" column; now we rely on description prefix
-				// to determine optionality per spec guidance.
-				// leave as no-op; handled after loop.
+				optionalValue = strings.TrimSpace(td.Text())
 			case paramDescriptionColumnIndex:
 				def.Description = td.Text()
 			}
 		})
 
-		// Determine required based on description starting with Optional
-		def.Required = !isOptionalDescription(def.Description)
+		// Determine required based on "Required" column OR description starting with Optional
+		def.Required = !isOptionalDescription(def.Description) && !strings.EqualFold(optionalValue, "Optional")
 
 		// Force chat_id to be Integer for method parameters as well
 		if name == "chat_id" || strings.HasSuffix(name, "_chat_id") {
