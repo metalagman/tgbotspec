@@ -31,6 +31,11 @@ tasks:
     cmds:
       - go run ./cmd/tgbotspec > {{.OUTPUT}}
 
+  generate:client:
+    desc: Generate Telegram Bot API Go client
+    cmds:
+      - task -t tools/oapi-codegen/Taskfile.yml generate
+
   validate:
     desc: Validate the generated OpenAPI spec using openapi-spec-validator
     cmds:

@@ -18,6 +18,11 @@ OpenAPI template in `internal/openapi/openapi.yaml.gotmpl`.
 - The scraper relies on `spec_cache.html` to work offline. If the network is blocked,
   `touch spec_cache.html` before running the generator so the cached copy is used.
 
+## OpenAPI Spec Generation
+- The generator supports a "merge union type" mode via the `--merge-union-types` flag.
+  When enabled, union types composed only of references are merged into a single
+  object.
+
 ## Code Style
 - Go sources must compile with the pinned `go1.24` toolchain.
 - Run `gofmt`, `goimports`, and any project formatters before committing.

@@ -43,6 +43,12 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 
 	typeTargets, methodTargets := splitTargets(parser.ParseNavLists(doc), doc)
 
+	// Pass 1: Create a map of all types for lookup during merging
+	typesMap := make(map[string]parser.TypeDef, len(typeTargets))
+	for _, t := range typeTargets {
+		typesMap[t.Name] = t
+	}
+
 	renderData := openapi.TemplateData{
 		Title:   title,
 		Version: apiVersion,
@@ -50,8 +56,8 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 
 	// Pre-populate valid types for union merging validation
 	validTypes := make(map[string]struct{}, len(typeTargets))
-	for _, t := range typeTargets {
-		validTypes[t.Name] = struct{}{}
+	for name := range typesMap {
+		validTypes[name] = struct{}{}
 	}
 
 	validTypes["ResponseParameters"] = struct{}{}
@@ -77,14 +83,14 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 		for _, field := range t.Fields {
 			s := field.TypeRef.ToTypeSpec()
 			if opts.MergeUnionTypes {
-				s = mergeUnionTypes(s, validTypes)
+				s = mergeUnionTypes(s, validTypes, typesMap)
 			}
 
 			spec.Fields = append(spec.Fields, openapi.TypeField{
 				Name:        field.Name,
 				Description: field.Description,
 				Required:    field.Required,
-				Schema:      s,
+				Schema:      s.WithDescription(field.Description),
 			})
 		}
 
@@ -122,7 +128,7 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 		if m.Return != nil {
 			method.Return = m.Return.ToTypeSpec()
 			if opts.MergeUnionTypes {
-				method.Return = mergeUnionTypes(method.Return, validTypes)
+				method.Return = mergeUnionTypes(method.Return, validTypes, typesMap)
 			}
 		}
 
@@ -138,14 +144,14 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 
 			s := param.TypeRef.ToTypeSpec()
 			if opts.MergeUnionTypes {
-				s = mergeUnionTypes(s, validTypes)
+				s = mergeUnionTypes(s, validTypes, typesMap)
 			}
 
 			method.Params = append(method.Params, openapi.MethodParam{
 				Name:        name,
 				Description: param.Description,
 				Required:    param.Required,
-				Schema:      s,
+				Schema:      s.WithDescription(param.Description),
 			})
 
 			if requiresMultipart(param.TypeRef) {
@@ -163,47 +169,126 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 	return nil
 }
 
-func mergeUnionTypes(spec *openapi.TypeSpec, validTypes map[string]struct{}) *openapi.TypeSpec {
+func mergeUnionTypes(
+	spec *openapi.TypeSpec,
+	validTypes map[string]struct{},
+	typesMap map[string]parser.TypeDef,
+) *openapi.TypeSpec {
 	if spec == nil {
 		return nil
 	}
 
 	// Recursive check for Array items
 	if spec.Type == "array" && spec.Items != nil {
-		spec.Items = mergeUnionTypes(spec.Items, validTypes)
+		spec.Items = mergeUnionTypes(spec.Items, validTypes, typesMap)
 
 		return spec
 	}
 
-	if len(spec.AnyOf) == 0 {
+	elements, isAnyOf := getUnionElements(spec)
+	if len(elements) == 0 {
 		return spec
 	}
 
-	// Check if all are refs
-	refNames := make([]string, 0, len(spec.AnyOf))
+	refs, others, refNames := partitionElements(elements)
 
-	for _, item := range spec.AnyOf {
-		if item.Ref == nil || item.Ref.Name == "" {
-			return spec // Contains non-ref, skip
-		}
-
-		refNames = append(refNames, item.Ref.Name)
-	}
-
-	// Find common prefix
-	common := commonPrefix(refNames)
-	if common == "" {
+	// We need at least 2 refs to merge anything meaningfully,
+	// unless we want to "upcast" a single ref? No, MinUnionParts=2 usually.
+	if len(refs) < parser.MinUnionParts {
 		return spec
 	}
 
-	// Verify if common prefix is a valid type
-	if _, ok := validTypes[common]; ok {
-		return &openapi.TypeSpec{
-			Ref: &openapi.TypeRef{Name: common},
-		}
+	// Try merging by common prefix
+	if merged := tryMergeByPrefix(spec, refs, others, refNames, isAnyOf, validTypes); merged != nil {
+		return merged
+	}
+
+	// If it's all refs but no common prefix was found, merge them into a single object with all properties.
+	if len(others) == 0 {
+		return mergeProperties(refs, typesMap)
 	}
 
 	return spec
+}
+
+func getUnionElements(spec *openapi.TypeSpec) ([]openapi.TypeSpec, bool) {
+	if len(spec.AnyOf) > 0 {
+		return spec.AnyOf, true
+	}
+
+	return spec.OneOf, false
+}
+
+func partitionElements(elements []openapi.TypeSpec) (refs, others []openapi.TypeSpec, refNames []string) {
+	for _, el := range elements {
+		if el.Ref != nil && el.Ref.Name != "" {
+			refs = append(refs, el)
+			refNames = append(refNames, el.Ref.Name)
+		} else {
+			others = append(others, el)
+		}
+	}
+
+	return refs, others, refNames
+}
+
+func tryMergeByPrefix(
+	spec *openapi.TypeSpec,
+	refs, others []openapi.TypeSpec,
+	refNames []string,
+	isAnyOf bool,
+	validTypes map[string]struct{},
+) *openapi.TypeSpec {
+	common := commonPrefix(refNames)
+	if common == "" {
+		return nil
+	}
+
+	if _, ok := validTypes[common]; !ok {
+		return nil
+	}
+
+	mergedRef := openapi.TypeSpec{
+		Ref: &openapi.TypeRef{Name: common},
+	}
+
+	if len(others) == 0 {
+		return &mergedRef
+	}
+
+	newElements := append([]openapi.TypeSpec{mergedRef}, others...)
+
+	newSpec := *spec
+	if isAnyOf {
+		newSpec.AnyOf = newElements
+		newSpec.OneOf = nil
+	} else {
+		newSpec.OneOf = newElements
+		newSpec.AnyOf = nil
+	}
+
+	return &newSpec
+}
+
+func mergeProperties(refs []openapi.TypeSpec, typesMap map[string]parser.TypeDef) *openapi.TypeSpec {
+	merged := &openapi.TypeSpec{
+		Type:       "object",
+		Properties: make(map[string]openapi.TypeSpec),
+	}
+
+	for _, ref := range refs {
+		if td, ok := typesMap[ref.Ref.Name]; ok {
+			for _, field := range td.Fields {
+				merged.Properties[field.Name] = *field.TypeRef.ToTypeSpec().WithDescription(field.Description)
+			}
+		}
+	}
+
+	if len(merged.Properties) > 0 {
+		return merged
+	}
+
+	return &openapi.TypeSpec{Type: "object"}
 }
 
 func commonPrefix(names []string) string {

@@ -33,6 +33,27 @@ type TypeSpec struct {
 	Ref                  *TypeRef            `yaml:"$ref,omitempty"`
 }
 
+// WithDescription returns a copy of the TypeSpec with the provided description.
+// If the TypeSpec uses a $ref, it wraps it in an allOf to avoid having $ref
+// and description as siblings, which is forbidden in OpenAPI 3.0.
+func (s *TypeSpec) WithDescription(desc string) *TypeSpec {
+	if s == nil {
+		return nil
+	}
+
+	res := *s
+	res.Description = desc
+
+	if res.Ref != nil {
+		refOnly := TypeSpec{Ref: res.Ref}
+
+		res.Ref = nil
+		res.AllOf = []TypeSpec{refOnly}
+	}
+
+	return &res
+}
+
 type Discriminator struct {
 	PropertyName string            `yaml:"propertyName"`
 	Mapping      map[string]string `yaml:"mapping,omitempty"`

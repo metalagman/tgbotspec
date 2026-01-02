@@ -7,6 +7,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
+	"github.com/metalagman/tgbotspec/internal/openapi"
 	"github.com/metalagman/tgbotspec/internal/parser"
 )
 
@@ -306,5 +307,85 @@ func TestRequiresMultipart(t *testing.T) {
 				t.Fatalf("requiresMultipart(%q) = %v, want %v", tc.raw, got, tc.want)
 			}
 		})
+	}
+}
+
+//nolint:cyclop,funlen
+func TestMergeUnionTypesLogic(t *testing.T) {
+	validTypes := map[string]struct{}{
+		"InputMedia": {},
+	}
+
+	// Case 1: OneOf with common prefix "InputMedia" -> Should merge
+	inputMediaSpec := &openapi.TypeSpec{
+		OneOf: []openapi.TypeSpec{
+			{Ref: &openapi.TypeRef{Name: "InputMediaPhoto"}},
+			{Ref: &openapi.TypeRef{Name: "InputMediaVideo"}},
+		},
+	}
+
+	mergedMedia := mergeUnionTypes(inputMediaSpec, validTypes, nil)
+	if mergedMedia.Ref == nil || mergedMedia.Ref.Name != "InputMedia" {
+		t.Errorf("expected InputMedia merge, got %#v", mergedMedia)
+	}
+
+	// Case 2: OneOf with NO common prefix (ReplyMarkup) -> Should merge into generic object
+	replyMarkupSpec := &openapi.TypeSpec{
+		OneOf: []openapi.TypeSpec{
+			{Ref: &openapi.TypeRef{Name: "InlineKeyboardMarkup"}},
+			{Ref: &openapi.TypeRef{Name: "ReplyKeyboardMarkup"}},
+			{Ref: &openapi.TypeRef{Name: "ReplyKeyboardRemove"}},
+			{Ref: &openapi.TypeRef{Name: "ForceReply"}},
+		},
+	}
+
+	mergedReply := mergeUnionTypes(replyMarkupSpec, validTypes, nil)
+	if mergedReply.Type != "object" || len(mergedReply.OneOf) != 0 {
+		t.Errorf("expected ReplyMarkup to merge into generic object, got %#v", mergedReply)
+	}
+
+	// Case 3: AnyOf (primitive + ref) -> Should NOT merge
+	anyOfSpec := &openapi.TypeSpec{
+		AnyOf: []openapi.TypeSpec{
+			{Type: "string"},
+			{Ref: &openapi.TypeRef{Name: "InputMediaPhoto"}},
+		},
+	}
+
+	mergedAnyOf := mergeUnionTypes(anyOfSpec, validTypes, nil)
+	if len(mergedAnyOf.AnyOf) != 2 || mergedAnyOf.Ref != nil {
+		t.Errorf("expected AnyOf mixed to NOT merge, got %#v", mergedAnyOf)
+	}
+
+	// Case 4: OneOf (refs + primitive) -> Should merge refs
+	mixedSpec := &openapi.TypeSpec{
+		OneOf: []openapi.TypeSpec{
+			{Ref: &openapi.TypeRef{Name: "InputMediaPhoto"}},
+			{Ref: &openapi.TypeRef{Name: "InputMediaVideo"}},
+			{Type: "string"},
+		},
+	}
+
+	mergedMixed := mergeUnionTypes(mixedSpec, validTypes, nil)
+	// We expect OneOf with 2 elements: Ref(InputMedia) and Type(string)
+	if len(mergedMixed.OneOf) != 2 {
+		t.Errorf("expected mixed OneOf to merge to 2 elements, got %d", len(mergedMixed.OneOf))
+	}
+
+	foundRef := false
+	foundString := false
+
+	for _, s := range mergedMixed.OneOf {
+		if s.Ref != nil && s.Ref.Name == "InputMedia" {
+			foundRef = true
+		}
+
+		if s.Type == "string" {
+			foundString = true
+		}
+	}
+
+	if !foundRef || !foundString {
+		t.Errorf("expected merged mixed OneOf to contain InputMedia and string, got %#v", mergedMixed)
 	}
 }

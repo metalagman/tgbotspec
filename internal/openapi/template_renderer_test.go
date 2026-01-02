@@ -2,6 +2,7 @@ package openapi //nolint:testpackage // access internal helpers
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -111,7 +112,7 @@ func TestSimplifyJSONBasic(t *testing.T) {
 	}
 }
 
-func TestSimplifyJSONUnion(t *testing.T) {
+func TestSimplifyJSON_AnyOf(t *testing.T) {
 	binarySpec := &TypeSpec{Type: "string", Format: "binary"}
 	stringSpec := &TypeSpec{Type: "string"}
 	unionSpec := &TypeSpec{AnyOf: []TypeSpec{*binarySpec, *stringSpec}}
@@ -125,6 +126,25 @@ func TestSimplifyJSONUnion(t *testing.T) {
 	gotMulti := simplifyJSON(multiUnionSpec)
 	if gotMulti == nil || len(gotMulti.AnyOf) != 2 {
 		t.Errorf("expected multiUnion to simplify to 2 parts, got %#v", gotMulti)
+	}
+}
+
+func TestSimplifyJSON_OneOf(t *testing.T) {
+	binarySpec := &TypeSpec{Type: "string", Format: "binary"}
+	stringSpec := &TypeSpec{Type: "string"}
+
+	oneOfSpec := &TypeSpec{OneOf: []TypeSpec{*binarySpec, *stringSpec}}
+
+	gotOneOf := simplifyJSON(oneOfSpec)
+	if gotOneOf == nil || gotOneOf.Type != "string" || gotOneOf.Format != "" {
+		t.Errorf("expected oneOf to simplify to stringSpec, got %#v", gotOneOf)
+	}
+
+	multiUnionOneOfSpec := &TypeSpec{OneOf: []TypeSpec{*binarySpec, *stringSpec, {Type: "integer"}}}
+
+	gotMultiOneOf := simplifyJSON(multiUnionOneOfSpec)
+	if gotMultiOneOf == nil || len(gotMultiOneOf.OneOf) != 2 {
+		t.Errorf("expected multiUnionOneOf to simplify to 2 parts, got %#v", gotMultiOneOf)
 	}
 }
 
@@ -203,7 +223,7 @@ func TestRenderTemplate(t *testing.T) {
 						Name:        "photo",
 						Description: "Photo",
 						Required:    true,
-						Schema:      &TypeSpec{AnyOf: []TypeSpec{{Type: "string", Format: "binary"}, {Type: "string"}}},
+						Schema:      &TypeSpec{OneOf: []TypeSpec{{Type: "string", Format: "binary"}, {Type: "string"}}},
 					},
 				},
 				SupportsMultipart: true,
@@ -223,7 +243,12 @@ func TestRenderTemplate(t *testing.T) {
 	}
 
 	// sendMessage application/json should have photo as string
-	if !strings.Contains(out, "photo:\n                  type: string") {
+	matched, err := regexp.MatchString(`photo:\s*\n\s+type: string`, out)
+	if err != nil {
+		t.Fatalf("regex error: %v", err)
+	}
+
+	if !matched {
 		t.Errorf("expected photo as string in JSON section. Output:\n%s", out)
 	}
 
