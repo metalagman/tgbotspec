@@ -2,6 +2,7 @@ package openapi //nolint:testpackage // access internal helpers
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -222,7 +223,7 @@ func TestRenderTemplate(t *testing.T) {
 						Name:        "photo",
 						Description: "Photo",
 						Required:    true,
-						Schema:      &TypeSpec{AnyOf: []TypeSpec{{Type: "string", Format: "binary"}, {Type: "string"}}},
+						Schema:      &TypeSpec{OneOf: []TypeSpec{{Type: "string", Format: "binary"}, {Type: "string"}}},
 					},
 				},
 				SupportsMultipart: true,
@@ -242,7 +243,11 @@ func TestRenderTemplate(t *testing.T) {
 	}
 
 	// sendMessage application/json should have photo as string
-	if !strings.Contains(out, "photo:\n                  type: string") {
+	matched, err := regexp.MatchString(`photo:\s*\n\s+type: string`, out)
+	if err != nil {
+		t.Fatalf("regex error: %v", err)
+	}
+	if !matched {
 		t.Errorf("expected photo as string in JSON section. Output:\n%s", out)
 	}
 

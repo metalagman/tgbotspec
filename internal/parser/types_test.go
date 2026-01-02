@@ -162,8 +162,8 @@ func TestTypeRefUnionAndSpec(t *testing.T) {
 	}
 
 	spec = NewTypeRef("Sticker or Photo").ToTypeSpec()
-	if len(spec.AnyOf) != 2 {
-		t.Fatalf("expected anyOf for union, got %#v", spec)
+	if len(spec.OneOf) != 2 {
+		t.Fatalf("expected oneOf for union, got %#v", spec)
 	}
 
 	spec = NewTypeRef("CustomType").ToTypeSpec()

@@ -183,23 +183,14 @@ func (t *TypeRef) tryParseUnion() *openapi.TypeSpec {
 	}
 
 	elements := make([]openapi.TypeSpec, 0, len(parts))
-	allRefs := true
 
 	for _, p := range parts {
 		spec := *NewTypeRef(p).ToTypeSpec()
 		elements = append(elements, spec)
-
-		if spec.Ref == nil {
-			allRefs = false
-		}
 	}
 
 	if len(elements) >= minUnionParts {
-		if allRefs {
-			return &openapi.TypeSpec{OneOf: elements}
-		}
-
-		return &openapi.TypeSpec{AnyOf: elements}
+		return &openapi.TypeSpec{OneOf: elements}
 	}
 
 	return nil
