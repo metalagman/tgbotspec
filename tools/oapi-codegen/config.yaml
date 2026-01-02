@@ -4,4 +4,4 @@ generate:
   models: true
   client: true
   embedded-spec: true
-output: pkg/tgbotapi/tgbotapi.generated.go
+output: internal/tgbotapi/tgbotapi.generated.go

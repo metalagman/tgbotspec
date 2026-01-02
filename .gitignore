@@ -36,4 +36,4 @@ bin
 # Generated cache/artifact files
 spec_cache.html
 openapi.generated.yaml
-pkg/tgbotapi/tgbotapi.generated.go
+internal/tgbotapi/tgbotapi.generated.go
