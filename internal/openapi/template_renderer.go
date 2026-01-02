@@ -124,7 +124,7 @@ func simplifyJSON(spec *TypeSpec) *TypeSpec {
 		}
 
 		if len(anyOf) == 1 {
-			return &anyOf[0]
+			return anyOf[0].WithDescription(spec.Description)
 		}
 
 		res.AnyOf = anyOf

@@ -84,7 +84,7 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 				Name:        field.Name,
 				Description: field.Description,
 				Required:    field.Required,
-				Schema:      s,
+				Schema:      s.WithDescription(field.Description),
 			})
 		}
 
@@ -145,7 +145,7 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 				Name:        name,
 				Description: param.Description,
 				Required:    param.Required,
-				Schema:      s,
+				Schema:      s.WithDescription(param.Description),
 			})
 
 			if requiresMultipart(param.TypeRef) {
