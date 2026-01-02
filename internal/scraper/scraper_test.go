@@ -7,6 +7,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
+	"github.com/metalagman/tgbotspec/internal/openapi"
 	"github.com/metalagman/tgbotspec/internal/parser"
 )
 
@@ -306,5 +307,52 @@ func TestRequiresMultipart(t *testing.T) {
 				t.Fatalf("requiresMultipart(%q) = %v, want %v", tc.raw, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestMergeUnionTypesLogic(t *testing.T) {
+	validTypes := map[string]struct{}{
+		"InputMedia": {},
+	}
+
+	// Case 1: OneOf with common prefix "InputMedia" -> Should merge
+	inputMediaSpec := &openapi.TypeSpec{
+		OneOf: []openapi.TypeSpec{
+			{Ref: &openapi.TypeRef{Name: "InputMediaPhoto"}},
+			{Ref: &openapi.TypeRef{Name: "InputMediaVideo"}},
+		},
+	}
+
+	mergedMedia := mergeUnionTypes(inputMediaSpec, validTypes)
+	if mergedMedia.Ref == nil || mergedMedia.Ref.Name != "InputMedia" {
+		t.Errorf("expected InputMedia merge, got %#v", mergedMedia)
+	}
+
+	// Case 2: OneOf with NO common prefix (ReplyMarkup) -> Should NOT merge
+	replyMarkupSpec := &openapi.TypeSpec{
+		OneOf: []openapi.TypeSpec{
+			{Ref: &openapi.TypeRef{Name: "InlineKeyboardMarkup"}},
+			{Ref: &openapi.TypeRef{Name: "ReplyKeyboardMarkup"}},
+			{Ref: &openapi.TypeRef{Name: "ReplyKeyboardRemove"}},
+			{Ref: &openapi.TypeRef{Name: "ForceReply"}},
+		},
+	}
+
+	mergedReply := mergeUnionTypes(replyMarkupSpec, validTypes)
+	if len(mergedReply.OneOf) != 4 || mergedReply.Ref != nil {
+		t.Errorf("expected ReplyMarkup to NOT merge, got %#v", mergedReply)
+	}
+
+	// Case 3: AnyOf (primitive + ref) -> Should NOT merge
+	anyOfSpec := &openapi.TypeSpec{
+		AnyOf: []openapi.TypeSpec{
+			{Type: "string"},
+			{Ref: &openapi.TypeRef{Name: "InputMediaPhoto"}},
+		},
+	}
+
+	mergedAnyOf := mergeUnionTypes(anyOfSpec, validTypes)
+	if len(mergedAnyOf.AnyOf) != 2 || mergedAnyOf.Ref != nil {
+		t.Errorf("expected AnyOf mixed to NOT merge, got %#v", mergedAnyOf)
 	}
 }

@@ -115,14 +115,7 @@ func simplifyJSON(spec *TypeSpec) *TypeSpec {
 	res := *spec
 
 	if len(spec.AnyOf) > 0 {
-		var anyOf []TypeSpec
-
-		for i := range spec.AnyOf {
-			if s := simplifyJSON(&spec.AnyOf[i]); s != nil {
-				anyOf = append(anyOf, *s)
-			}
-		}
-
+		anyOf := simplifyList(spec.AnyOf)
 		if len(anyOf) == 1 {
 			return anyOf[0].WithDescription(spec.Description)
 		}
@@ -130,11 +123,32 @@ func simplifyJSON(spec *TypeSpec) *TypeSpec {
 		res.AnyOf = anyOf
 	}
 
+	if len(spec.OneOf) > 0 {
+		oneOf := simplifyList(spec.OneOf)
+		if len(oneOf) == 1 {
+			return oneOf[0].WithDescription(spec.Description)
+		}
+
+		res.OneOf = oneOf
+	}
+
 	if spec.Items != nil {
 		res.Items = simplifyJSON(spec.Items)
 	}
 
 	return &res
+}
+
+func simplifyList(specs []TypeSpec) []TypeSpec {
+	var filtered []TypeSpec
+
+	for i := range specs {
+		if s := simplifyJSON(&specs[i]); s != nil {
+			filtered = append(filtered, *s)
+		}
+	}
+
+	return filtered
 }
 
 func simplifyMultipart(spec *TypeSpec) *TypeSpec {

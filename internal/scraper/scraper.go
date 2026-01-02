@@ -175,19 +175,18 @@ func mergeUnionTypes(spec *openapi.TypeSpec, validTypes map[string]struct{}) *op
 		return spec
 	}
 
-	if len(spec.AnyOf) == 0 {
+	elements := spec.AnyOf
+	if len(elements) == 0 {
+		elements = spec.OneOf
+	}
+
+	if len(elements) == 0 {
 		return spec
 	}
 
-	// Check if all are refs
-	refNames := make([]string, 0, len(spec.AnyOf))
-
-	for _, item := range spec.AnyOf {
-		if item.Ref == nil || item.Ref.Name == "" {
-			return spec // Contains non-ref, skip
-		}
-
-		refNames = append(refNames, item.Ref.Name)
+	refNames := extractRefNames(elements)
+	if refNames == nil {
+		return spec
 	}
 
 	// Find common prefix
@@ -204,6 +203,20 @@ func mergeUnionTypes(spec *openapi.TypeSpec, validTypes map[string]struct{}) *op
 	}
 
 	return spec
+}
+
+func extractRefNames(elements []openapi.TypeSpec) []string {
+	refNames := make([]string, 0, len(elements))
+
+	for _, item := range elements {
+		if item.Ref == nil || item.Ref.Name == "" {
+			return nil // Contains non-ref, skip
+		}
+
+		refNames = append(refNames, item.Ref.Name)
+	}
+
+	return refNames
 }
 
 func commonPrefix(names []string) string {

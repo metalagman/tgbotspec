@@ -74,45 +74,29 @@ func (t *TypeRef) UnionParts() []string {
 // It handles nested arrays ("Array of X"), union types ("A or B" / "A, B and C"),
 // primitive scalars, and the Telegram-specific pseudo-type "True" which means
 // a boolean literal true (default: true).
-func (t *TypeRef) ToTypeSpec() *openapi.TypeSpec { //nolint:cyclop // mapping type variants requires branching
+func (t *TypeRef) ToTypeSpec() *openapi.TypeSpec {
 	if t == nil || strings.TrimSpace(t.RawType) == "" {
 		return &openapi.TypeSpec{}
 	}
 
 	raw := strings.TrimSpace(t.RawType)
 
-	// Handle Arrays recursively: patterns like "Array of X" possibly nested
-	const prefix = "Array of "
-	if strings.HasPrefix(raw, prefix) {
-		inner := strings.TrimSpace(strings.TrimPrefix(raw, prefix))
-
-		return &openapi.TypeSpec{
-			Type:  "array",
-			Items: NewTypeRef(inner).ToTypeSpec(),
-		}
-	}
-	// Also handle lower-case phrasing like "array of array of X"
-	if strings.HasPrefix(strings.ToLower(raw), "array of array of ") {
-		inner := strings.TrimSpace(raw[len("Array of "):])
-
-		return &openapi.TypeSpec{
-			Type:  "array",
-			Items: NewTypeRef(inner).ToTypeSpec(),
-		}
+	if spec := t.tryParseArray(raw); spec != nil {
+		return spec
 	}
 
-	// Handle union types detected by the parser's TypeRef.UnionParts
-	if parts := t.UnionParts(); parts != nil {
-		anyOf := make([]openapi.TypeSpec, 0, len(parts))
-		for _, p := range parts {
-			anyOf = append(anyOf, *NewTypeRef(p).ToTypeSpec())
-		}
-
-		if len(anyOf) >= minUnionParts {
-			return &openapi.TypeSpec{AnyOf: anyOf}
-		}
+	if spec := t.tryParseUnion(); spec != nil {
+		return spec
 	}
 
+	if spec := parseBasicType(raw); spec != nil {
+		return spec
+	}
+
+	return &openapi.TypeSpec{Ref: &openapi.TypeRef{Name: raw}}
+}
+
+func parseBasicType(raw string) *openapi.TypeSpec {
 	switch strings.ToLower(raw) {
 	case "string":
 		return &openapi.TypeSpec{Type: "string"}
@@ -135,9 +119,7 @@ func (t *TypeRef) ToTypeSpec() *openapi.TypeSpec { //nolint:cyclop // mapping ty
 		return &openapi.TypeSpec{Type: "string", Format: "binary"}
 	}
 
-	name := strings.TrimSpace(raw)
-
-	return &openapi.TypeSpec{Ref: &openapi.TypeRef{Name: name}}
+	return nil
 }
 
 // ContainsType reports whether the raw type (including nested arrays/unions)
@@ -168,6 +150,59 @@ func (t *TypeRef) ContainsTypeWithPrefix(prefix string) bool {
 	return t.contains(func(raw string) bool {
 		return strings.HasPrefix(strings.ToLower(raw), prefixLower)
 	})
+}
+
+func (t *TypeRef) tryParseArray(raw string) *openapi.TypeSpec {
+	const prefix = "Array of "
+	if strings.HasPrefix(raw, prefix) {
+		inner := strings.TrimSpace(strings.TrimPrefix(raw, prefix))
+
+		return &openapi.TypeSpec{
+			Type:  "array",
+			Items: NewTypeRef(inner).ToTypeSpec(),
+		}
+	}
+
+	// Also handle lower-case phrasing like "array of array of X"
+	if strings.HasPrefix(strings.ToLower(raw), "array of array of ") {
+		inner := strings.TrimSpace(raw[len(prefix):])
+
+		return &openapi.TypeSpec{
+			Type:  "array",
+			Items: NewTypeRef(inner).ToTypeSpec(),
+		}
+	}
+
+	return nil
+}
+
+func (t *TypeRef) tryParseUnion() *openapi.TypeSpec {
+	parts := t.UnionParts()
+	if parts == nil {
+		return nil
+	}
+
+	elements := make([]openapi.TypeSpec, 0, len(parts))
+	allRefs := true
+
+	for _, p := range parts {
+		spec := *NewTypeRef(p).ToTypeSpec()
+		elements = append(elements, spec)
+
+		if spec.Ref == nil {
+			allRefs = false
+		}
+	}
+
+	if len(elements) >= minUnionParts {
+		if allRefs {
+			return &openapi.TypeSpec{OneOf: elements}
+		}
+
+		return &openapi.TypeSpec{AnyOf: elements}
+	}
+
+	return nil
 }
 
 func (t *TypeRef) contains(predicate func(string) bool) bool {
