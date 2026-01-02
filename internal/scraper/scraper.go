@@ -185,32 +185,12 @@ func mergeUnionTypes(
 		return spec
 	}
 
-	elements := spec.AnyOf
-	isAnyOf := true
-
-	if len(elements) == 0 {
-		elements = spec.OneOf
-		isAnyOf = false
-	}
-
+	elements, isAnyOf := getUnionElements(spec)
 	if len(elements) == 0 {
 		return spec
 	}
 
-	var (
-		refs     []openapi.TypeSpec
-		others   []openapi.TypeSpec
-		refNames []string
-	)
-
-	for _, el := range elements {
-		if el.Ref != nil && el.Ref.Name != "" {
-			refs = append(refs, el)
-			refNames = append(refNames, el.Ref.Name)
-		} else {
-			others = append(others, el)
-		}
-	}
+	refs, others, refNames := partitionElements(elements)
 
 	// We need at least 2 refs to merge anything meaningfully,
 	// unless we want to "upcast" a single ref? No, MinUnionParts=2 usually.
@@ -229,6 +209,27 @@ func mergeUnionTypes(
 	}
 
 	return spec
+}
+
+func getUnionElements(spec *openapi.TypeSpec) ([]openapi.TypeSpec, bool) {
+	if len(spec.AnyOf) > 0 {
+		return spec.AnyOf, true
+	}
+
+	return spec.OneOf, false
+}
+
+func partitionElements(elements []openapi.TypeSpec) (refs, others []openapi.TypeSpec, refNames []string) {
+	for _, el := range elements {
+		if el.Ref != nil && el.Ref.Name != "" {
+			refs = append(refs, el)
+			refNames = append(refNames, el.Ref.Name)
+		} else {
+			others = append(others, el)
+		}
+	}
+
+	return refs, others, refNames
 }
 
 func tryMergeByPrefix(
