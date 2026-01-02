@@ -1,0 +1,7 @@
+# oapi-codegen configuration for Telegram Bot API client
+package: tgbotapi
+generate:
+  models: true
+  client: true
+  embedded-spec: true
+output: pkg/tgbotapi/tgbotapi.generated.go
