@@ -175,6 +175,22 @@ func TestTypeRefUnionAndSpec(t *testing.T) {
 	if spec.Type != "" || spec.Ref != nil {
 		t.Fatalf("expected empty spec for nil TypeRef")
 	}
+
+	// Extra cases for parseBasicType
+	for _, tc := range []struct {
+		raw  string
+		want string
+	}{
+		{"bool", "boolean"},
+		{"float", "number"},
+		{"number", "number"},
+		{"inputfile", "string"},
+	} {
+		spec = NewTypeRef(tc.raw).ToTypeSpec()
+		if spec.Type != tc.want {
+			t.Errorf("parseBasicType(%q) = %q, want %q", tc.raw, spec.Type, tc.want)
+		}
+	}
 }
 
 func TestTypeRefContainsType(t *testing.T) {
@@ -188,6 +204,7 @@ func TestTypeRefContainsType(t *testing.T) {
 	}{
 		{name: "nil receiver", raw: "", target: "InputFile", want: false},
 		{name: "empty target", raw: "InputFile", target: "  ", want: false},
+		{name: "empty raw", raw: " ", target: "InputFile", want: false},
 		{name: "direct match", raw: "InputFile", target: "InputFile", want: true},
 		{name: "case insensitive", raw: "inputfile", target: "InputFile", want: true},
 		{name: "array nesting", raw: "Array of Array of InputFile", target: "InputFile", want: true},

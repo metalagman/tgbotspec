@@ -260,6 +260,7 @@ func TestParseIsReturnedClauseVariants(t *testing.T) {
 	}
 }
 
+//nolint:cyclop
 func TestExtractReturnTypeFromSentenceHelpers(t *testing.T) {
 	if extractReturnTypeFromSentence("") != "" {
 		t.Fatalf("expected empty result for blank sentence")
@@ -283,6 +284,18 @@ func TestExtractReturnTypeFromSentenceHelpers(t *testing.T) {
 
 	if extractReturnTypeFromSentence("On success, Returns data if available.") != "" {
 		t.Fatalf("expected case-insensitive handling")
+	}
+
+	if got := extractReturnTypeFromSentence("On success returns Message."); got != "Message" {
+		t.Fatalf("expected Message from 'On success returns Message.', got %q", got)
+	}
+
+	if got := extractReturnTypeFromSentence("On success, returns Message."); got != "Message" {
+		t.Fatalf("expected Message from 'On success, returns Message.', got %q", got)
+	}
+
+	if extractReturnTypeFromSentence("On success, returns unknown data.") != "" {
+		t.Fatalf("expected empty for unknown data after returns")
 	}
 
 	if got := extractReturnTypeFromSentence("The Message is returned."); got != "Message" {
