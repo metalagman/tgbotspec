@@ -176,16 +176,34 @@ func mergeUnionTypes(spec *openapi.TypeSpec, validTypes map[string]struct{}) *op
 	}
 
 	elements := spec.AnyOf
+	isAnyOf := true
 	if len(elements) == 0 {
 		elements = spec.OneOf
+		isAnyOf = false
 	}
 
 	if len(elements) == 0 {
 		return spec
 	}
 
-	refNames := extractRefNames(elements)
-	if refNames == nil {
+	var (
+		refs     []openapi.TypeSpec
+		others   []openapi.TypeSpec
+		refNames []string
+	)
+
+	for _, el := range elements {
+		if el.Ref != nil && el.Ref.Name != "" {
+			refs = append(refs, el)
+			refNames = append(refNames, el.Ref.Name)
+		} else {
+			others = append(others, el)
+		}
+	}
+
+	// We need at least 2 refs to merge anything meaningfully,
+	// unless we want to "upcast" a single ref? No, minUnionParts=2 usually.
+	if len(refs) < 2 {
 		return spec
 	}
 
@@ -196,27 +214,32 @@ func mergeUnionTypes(spec *openapi.TypeSpec, validTypes map[string]struct{}) *op
 	}
 
 	// Verify if common prefix is a valid type
-	if _, ok := validTypes[common]; ok {
-		return &openapi.TypeSpec{
-			Ref: &openapi.TypeRef{Name: common},
-		}
+	if _, ok := validTypes[common]; !ok {
+		return spec
 	}
 
-	return spec
-}
-
-func extractRefNames(elements []openapi.TypeSpec) []string {
-	refNames := make([]string, 0, len(elements))
-
-	for _, item := range elements {
-		if item.Ref == nil || item.Ref.Name == "" {
-			return nil // Contains non-ref, skip
-		}
-
-		refNames = append(refNames, item.Ref.Name)
+	mergedRef := openapi.TypeSpec{
+		Ref: &openapi.TypeRef{Name: common},
 	}
 
-	return refNames
+	// If others is empty, we return the single MergedRef (collapsing the union completely).
+	if len(others) == 0 {
+		return &mergedRef
+	}
+
+	// If we have mixed content, we form a new union of [MergedRef, ...Others]
+	newElements := append([]openapi.TypeSpec{mergedRef}, others...)
+
+	newSpec := *spec // Copy properties like Description
+	if isAnyOf {
+		newSpec.AnyOf = newElements
+		newSpec.OneOf = nil
+	} else {
+		newSpec.OneOf = newElements
+		newSpec.AnyOf = nil
+	}
+
+	return &newSpec
 }
 
 func commonPrefix(names []string) string {

@@ -351,8 +351,70 @@ func TestMergeUnionTypesLogic(t *testing.T) {
 		},
 	}
 
-	mergedAnyOf := mergeUnionTypes(anyOfSpec, validTypes)
-	if len(mergedAnyOf.AnyOf) != 2 || mergedAnyOf.Ref != nil {
-		t.Errorf("expected AnyOf mixed to NOT merge, got %#v", mergedAnyOf)
+		mergedAnyOf := mergeUnionTypes(anyOfSpec, validTypes)
+
+		if len(mergedAnyOf.AnyOf) != 2 || mergedAnyOf.Ref != nil {
+
+			t.Errorf("expected AnyOf mixed to NOT merge, got %#v", mergedAnyOf)
+
+		}
+
+	
+
+		// Case 4: OneOf (refs + primitive) -> Should merge refs
+
+		mixedSpec := &openapi.TypeSpec{
+
+			OneOf: []openapi.TypeSpec{
+
+				{Ref: &openapi.TypeRef{Name: "InputMediaPhoto"}},
+
+				{Ref: &openapi.TypeRef{Name: "InputMediaVideo"}},
+
+				{Type: "string"},
+
+			},
+
+		}
+
+	
+
+		mergedMixed := mergeUnionTypes(mixedSpec, validTypes)
+
+		// We expect OneOf with 2 elements: Ref(InputMedia) and Type(string)
+
+		if len(mergedMixed.OneOf) != 2 {
+
+			t.Errorf("expected mixed OneOf to merge to 2 elements, got %d", len(mergedMixed.OneOf))
+
+		}
+
+		foundRef := false
+
+		foundString := false
+
+		for _, s := range mergedMixed.OneOf {
+
+			if s.Ref != nil && s.Ref.Name == "InputMedia" {
+
+				foundRef = true
+
+			}
+
+			if s.Type == "string" {
+
+				foundString = true
+
+			}
+
+		}
+
+		if !foundRef || !foundString {
+
+			t.Errorf("expected merged mixed OneOf to contain InputMedia and string, got %#v", mergedMixed)
+
+		}
+
 	}
-}
+
+	
