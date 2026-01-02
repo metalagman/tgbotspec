@@ -4,4 +4,4 @@ generate:
   models: true
   client: true
   embedded-spec: true
-output: internal/tgbotapi/tgbotapi.generated.go
+output: tools/oapi-codegen/client.gen.go

@@ -43,6 +43,12 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 
 	typeTargets, methodTargets := splitTargets(parser.ParseNavLists(doc), doc)
 
+	// Pass 1: Create a map of all types for lookup during merging
+	typesMap := make(map[string]parser.TypeDef, len(typeTargets))
+	for _, t := range typeTargets {
+		typesMap[t.Name] = t
+	}
+
 	renderData := openapi.TemplateData{
 		Title:   title,
 		Version: apiVersion,
@@ -50,8 +56,8 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 
 	// Pre-populate valid types for union merging validation
 	validTypes := make(map[string]struct{}, len(typeTargets))
-	for _, t := range typeTargets {
-		validTypes[t.Name] = struct{}{}
+	for name := range typesMap {
+		validTypes[name] = struct{}{}
 	}
 
 	validTypes["ResponseParameters"] = struct{}{}
@@ -77,7 +83,7 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 		for _, field := range t.Fields {
 			s := field.TypeRef.ToTypeSpec()
 			if opts.MergeUnionTypes {
-				s = mergeUnionTypes(s, validTypes)
+				s = mergeUnionTypes(s, validTypes, typesMap)
 			}
 
 			spec.Fields = append(spec.Fields, openapi.TypeField{
@@ -122,7 +128,7 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 		if m.Return != nil {
 			method.Return = m.Return.ToTypeSpec()
 			if opts.MergeUnionTypes {
-				method.Return = mergeUnionTypes(method.Return, validTypes)
+				method.Return = mergeUnionTypes(method.Return, validTypes, typesMap)
 			}
 		}
 
@@ -138,7 +144,7 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 
 			s := param.TypeRef.ToTypeSpec()
 			if opts.MergeUnionTypes {
-				s = mergeUnionTypes(s, validTypes)
+				s = mergeUnionTypes(s, validTypes, typesMap)
 			}
 
 			method.Params = append(method.Params, openapi.MethodParam{
@@ -163,15 +169,18 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 	return nil
 }
 
-//nolint:cyclop,funlen // merging logic has many branches and is slightly long
-func mergeUnionTypes(spec *openapi.TypeSpec, validTypes map[string]struct{}) *openapi.TypeSpec {
+func mergeUnionTypes(
+	spec *openapi.TypeSpec,
+	validTypes map[string]struct{},
+	typesMap map[string]parser.TypeDef,
+) *openapi.TypeSpec {
 	if spec == nil {
 		return nil
 	}
 
 	// Recursive check for Array items
 	if spec.Type == "array" && spec.Items != nil {
-		spec.Items = mergeUnionTypes(spec.Items, validTypes)
+		spec.Items = mergeUnionTypes(spec.Items, validTypes, typesMap)
 
 		return spec
 	}
@@ -209,30 +218,46 @@ func mergeUnionTypes(spec *openapi.TypeSpec, validTypes map[string]struct{}) *op
 		return spec
 	}
 
-	// Find common prefix
-	common := commonPrefix(refNames)
-	if common == "" {
-		return spec
+	// Try merging by common prefix
+	if merged := tryMergeByPrefix(spec, refs, others, refNames, isAnyOf, validTypes); merged != nil {
+		return merged
 	}
 
-	// Verify if common prefix is a valid type
+	// If it's all refs but no common prefix was found, merge them into a single object with all properties.
+	if len(others) == 0 {
+		return mergeProperties(refs, typesMap)
+	}
+
+	return spec
+}
+
+func tryMergeByPrefix(
+	spec *openapi.TypeSpec,
+	refs, others []openapi.TypeSpec,
+	refNames []string,
+	isAnyOf bool,
+	validTypes map[string]struct{},
+) *openapi.TypeSpec {
+	common := commonPrefix(refNames)
+	if common == "" {
+		return nil
+	}
+
 	if _, ok := validTypes[common]; !ok {
-		return spec
+		return nil
 	}
 
 	mergedRef := openapi.TypeSpec{
 		Ref: &openapi.TypeRef{Name: common},
 	}
 
-	// If others is empty, we return the single MergedRef (collapsing the union completely).
 	if len(others) == 0 {
 		return &mergedRef
 	}
 
-	// If we have mixed content, we form a new union of [MergedRef, ...Others]
 	newElements := append([]openapi.TypeSpec{mergedRef}, others...)
 
-	newSpec := *spec // Copy properties like Description
+	newSpec := *spec
 	if isAnyOf {
 		newSpec.AnyOf = newElements
 		newSpec.OneOf = nil
@@ -242,6 +267,27 @@ func mergeUnionTypes(spec *openapi.TypeSpec, validTypes map[string]struct{}) *op
 	}
 
 	return &newSpec
+}
+
+func mergeProperties(refs []openapi.TypeSpec, typesMap map[string]parser.TypeDef) *openapi.TypeSpec {
+	merged := &openapi.TypeSpec{
+		Type:       "object",
+		Properties: make(map[string]openapi.TypeSpec),
+	}
+
+	for _, ref := range refs {
+		if td, ok := typesMap[ref.Ref.Name]; ok {
+			for _, field := range td.Fields {
+				merged.Properties[field.Name] = *field.TypeRef.ToTypeSpec().WithDescription(field.Description)
+			}
+		}
+	}
+
+	if len(merged.Properties) > 0 {
+		return merged
+	}
+
+	return &openapi.TypeSpec{Type: "object"}
 }
 
 func commonPrefix(names []string) string {

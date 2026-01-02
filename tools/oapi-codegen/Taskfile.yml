@@ -5,5 +5,5 @@ tasks:
     desc: Generate Telegram Bot API Go client
     dir: ../..
     cmds:
-      - task parse:save
+      - go run ./cmd/tgbotspec --merge-union-types > openapi.generated.yaml
       - go tool oapi-codegen -config tools/oapi-codegen/config.yaml openapi.generated.yaml

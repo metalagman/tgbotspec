@@ -324,12 +324,12 @@ func TestMergeUnionTypesLogic(t *testing.T) {
 		},
 	}
 
-	mergedMedia := mergeUnionTypes(inputMediaSpec, validTypes)
+	mergedMedia := mergeUnionTypes(inputMediaSpec, validTypes, nil)
 	if mergedMedia.Ref == nil || mergedMedia.Ref.Name != "InputMedia" {
 		t.Errorf("expected InputMedia merge, got %#v", mergedMedia)
 	}
 
-	// Case 2: OneOf with NO common prefix (ReplyMarkup) -> Should NOT merge
+	// Case 2: OneOf with NO common prefix (ReplyMarkup) -> Should merge into generic object
 	replyMarkupSpec := &openapi.TypeSpec{
 		OneOf: []openapi.TypeSpec{
 			{Ref: &openapi.TypeRef{Name: "InlineKeyboardMarkup"}},
@@ -339,9 +339,9 @@ func TestMergeUnionTypesLogic(t *testing.T) {
 		},
 	}
 
-	mergedReply := mergeUnionTypes(replyMarkupSpec, validTypes)
-	if len(mergedReply.OneOf) != 4 || mergedReply.Ref != nil {
-		t.Errorf("expected ReplyMarkup to NOT merge, got %#v", mergedReply)
+	mergedReply := mergeUnionTypes(replyMarkupSpec, validTypes, nil)
+	if mergedReply.Type != "object" || len(mergedReply.OneOf) != 0 {
+		t.Errorf("expected ReplyMarkup to merge into generic object, got %#v", mergedReply)
 	}
 
 	// Case 3: AnyOf (primitive + ref) -> Should NOT merge
@@ -352,7 +352,7 @@ func TestMergeUnionTypesLogic(t *testing.T) {
 		},
 	}
 
-	mergedAnyOf := mergeUnionTypes(anyOfSpec, validTypes)
+	mergedAnyOf := mergeUnionTypes(anyOfSpec, validTypes, nil)
 	if len(mergedAnyOf.AnyOf) != 2 || mergedAnyOf.Ref != nil {
 		t.Errorf("expected AnyOf mixed to NOT merge, got %#v", mergedAnyOf)
 	}
@@ -366,7 +366,7 @@ func TestMergeUnionTypesLogic(t *testing.T) {
 		},
 	}
 
-	mergedMixed := mergeUnionTypes(mixedSpec, validTypes)
+	mergedMixed := mergeUnionTypes(mixedSpec, validTypes, nil)
 	// We expect OneOf with 2 elements: Ref(InputMedia) and Type(string)
 	if len(mergedMixed.OneOf) != 2 {
 		t.Errorf("expected mixed OneOf to merge to 2 elements, got %d", len(mergedMixed.OneOf))
