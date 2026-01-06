@@ -115,9 +115,11 @@ func ParseMethod(doc *goquery.Document, anchor string) (*MethodDef, error) {
 		// Determine required based on "Required" column OR description starting with Optional
 		def.Required = !isOptionalDescription(def.Description) && !strings.EqualFold(optionalValue, "Optional")
 
-		// Force chat_id to be Integer for method parameters as well
+		// Force chat_id to be Int64 for method parameters as well
 		if name == "chat_id" || strings.HasSuffix(name, "_chat_id") {
-			def.TypeRef = NewTypeRef("Integer")
+			def.TypeRef = NewTypeRef("Int64")
+		} else if strings.Contains(strings.ToLower(def.Description), "64-bit integer") {
+			def.TypeRef = NewTypeRef("Int64")
 		}
 
 		res.Params[name] = def

@@ -62,7 +62,7 @@ func TestParseMethodSuccess(t *testing.T) {
 		t.Fatalf("expected return type String, got %#v", method.Return)
 	}
 
-	if got, ok := method.Params["chat_id"]; !ok || got.TypeRef.RawType != "Integer" || got.Required {
+	if got, ok := method.Params["chat_id"]; !ok || got.TypeRef.RawType != "Int64" || got.Required {
 		t.Fatalf("chat_id param not normalized: %#v", got)
 	}
 
@@ -70,7 +70,7 @@ func TestParseMethodSuccess(t *testing.T) {
 		t.Fatalf("limit param missing required flag: %#v", got)
 	}
 
-	if got, ok := method.Params["from_chat_id"]; !ok || got.TypeRef.RawType != "Integer" || got.Required {
+	if got, ok := method.Params["from_chat_id"]; !ok || got.TypeRef.RawType != "Int64" || got.Required {
 		t.Fatalf("from_chat_id param not normalized: %#v", got)
 	}
 
