@@ -79,6 +79,45 @@ func TestParseMethodSuccess(t *testing.T) {
 	}
 }
 
+func TestParseMethodInt64Params(t *testing.T) {
+	doc := mustDoc(t, `
+		<html><body>
+		<h3>Messaging API</h3>
+		<h4><a class="anchor" name="int64method"></a>int64method</h4>
+		<p>Returns String.</p>
+		<table class="table">
+		  <tbody>
+			<tr>
+			  <td>big_param</td>
+			  <td>Integer</td>
+			  <td>Required</td>
+			  <td>Unique identifier. 64-bit integer.</td>
+			</tr>
+			<tr>
+			  <td>mixed_param</td>
+			  <td>String or Integer</td>
+			  <td>Optional</td>
+			  <td>Optional. 64-bit integer.</td>
+			</tr>
+		  </tbody>
+		</table>
+		</body></html>
+	`)
+
+	method, err := ParseMethod(doc, "int64method")
+	if err != nil {
+		t.Fatalf("ParseMethod returned error: %v", err)
+	}
+
+	if got, ok := method.Params["big_param"]; !ok || got.TypeRef.RawType != "Int64" {
+		t.Fatalf("big_param param not normalized: %#v", got)
+	}
+
+	if got, ok := method.Params["mixed_param"]; !ok || got.TypeRef.RawType != "Int64" {
+		t.Fatalf("mixed_param param not normalized: %#v", got)
+	}
+}
+
 func TestParseMethodErrors(t *testing.T) {
 	t.Run("missing anchor", func(t *testing.T) {
 		doc := mustDoc(t, `<html><body><h4><a class="anchor" name="other"></a>dummy</h4></body></html>`)
