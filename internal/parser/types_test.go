@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-//nolint:cyclop // assertions for fields increase complexity
+//nolint:cyclop,funlen // assertions for fields increase complexity
 func TestParseType(t *testing.T) {
 	doc := mustDoc(t, `
 		<html><body>
@@ -21,6 +21,8 @@ func TestParseType(t *testing.T) {
 		    <tr><td>chat_id</td><td>String</td><td>Optional. Target chat</td></tr>
 		    <tr><td>count</td><td>Integer</td><td>Number of items</td></tr>
 		    <tr><td>target_chat_id</td><td>Integer or String</td><td>Optional. Target chat</td></tr>
+		    <tr><td>big_id</td><td>Integer</td><td>Unique identifier. 64-bit integer.</td></tr>
+		    <tr><td>mixed_id</td><td>String or Integer</td><td>Unique identifier. 64-bit integer.</td></tr>
 		  </tbody>
 		</table>
 		<blockquote><p>Note text.</p></blockquote>
@@ -41,12 +43,12 @@ func TestParseType(t *testing.T) {
 		t.Fatalf("expected three description entries, got %d", got)
 	}
 
-	if got := len(typeDef.Fields); got != 3 {
-		t.Fatalf("expected three fields, got %d", got)
+	if got := len(typeDef.Fields); got != 5 {
+		t.Fatalf("expected five fields, got %d", got)
 	}
 
 	fields := typeDef.Fields
-	if fields[0].Name != "chat_id" || fields[0].TypeRef.RawType != "Integer" || fields[0].Required {
+	if fields[0].Name != "chat_id" || fields[0].TypeRef.RawType != "Int64" || fields[0].Required {
 		t.Fatalf("chat_id field not normalized: %#v", fields[0])
 	}
 
@@ -54,8 +56,16 @@ func TestParseType(t *testing.T) {
 		t.Fatalf("expected second field to be required")
 	}
 
-	if fields[2].Name != "target_chat_id" || fields[2].TypeRef.RawType != "Integer" || fields[2].Required {
+	if fields[2].Name != "target_chat_id" || fields[2].TypeRef.RawType != "Int64" || fields[2].Required {
 		t.Fatalf("target_chat_id field not normalized: %#v", fields[2])
+	}
+
+	if fields[3].Name != "big_id" || fields[3].TypeRef.RawType != "Int64" {
+		t.Fatalf("big_id field not normalized: %#v", fields[3])
+	}
+
+	if fields[4].Name != "mixed_id" || fields[4].TypeRef.RawType != "Int64" {
+		t.Fatalf("mixed_id field not normalized: %#v", fields[4])
 	}
 
 	if !reflect.DeepEqual(typeDef.Notes, []string{"Note text."}) {

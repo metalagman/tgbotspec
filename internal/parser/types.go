@@ -321,9 +321,11 @@ func ParseType(doc *goquery.Document, anchor string) (*TypeDef, error) {
 		if fieldDef.Name == "" {
 			return
 		}
-		// Force chat_id to be Integer regardless of parsed union or other forms
+		// Force chat_id to be Int64 regardless of parsed union or other forms
 		if fieldDef.Name == "chat_id" || strings.HasSuffix(fieldDef.Name, "_chat_id") {
-			fieldDef.TypeRef = NewTypeRef("Integer")
+			fieldDef.TypeRef = NewTypeRef("Int64")
+		} else if strings.Contains(strings.ToLower(fieldDef.Description), "64-bit integer") {
+			fieldDef.TypeRef = NewTypeRef("Int64")
 		}
 
 		fieldDef.Required = !isOptionalDescription(fieldDef.Description)
