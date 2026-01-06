@@ -201,4 +201,11 @@ func TestReturnTypeToSpec(t *testing.T) { //nolint:cyclop // sequential assertio
 	if spec.Type != "integer" {
 		t.Fatalf("expected integer type, got %#v", spec)
 	}
+
+	tr = NewTypeRef("Integer64")
+
+	spec = tr.ToTypeSpec()
+	if spec.Type != "integer" || spec.Format != "int64" {
+		t.Fatalf("expected int64 format for Integer64, got %#v", spec)
+	}
 }

@@ -75,8 +75,8 @@ func TestParseMethodSuccess(t *testing.T) {
 		t.Fatalf("expected return type String, got %#v", method.Return)
 	}
 
-	if got, ok := method.Params["chat_id"]; !ok || got.TypeRef.RawType != "Integer" || got.Required {
-		t.Fatalf("chat_id param not normalized: %#v", got)
+	if got, ok := method.Params["chat_id"]; !ok || got.TypeRef.RawType != "Integer64" || got.Required {
+		t.Fatalf("chat_id param not normalized to Integer64: %#v", got)
 	}
 
 	if got, ok := method.Params["limit"]; !ok || got.TypeRef.RawType != "Integer" || !got.Required {
@@ -126,7 +126,9 @@ func TestParseType(t *testing.T) {
 		  <tbody>
 		    <tr><td> </td><td>String</td><td>Ignored</td></tr>
 		    <tr><td>chat_id</td><td>String</td><td>Optional. Target chat</td></tr>
+		    <tr><td>user_id</td><td>String</td><td>Optional. Target user</td></tr>
 		    <tr><td>count</td><td>Integer</td><td>Number of items</td></tr>
+		    <tr><td>large_val</td><td>Integer</td><td>This is a 64-bit integer value</td></tr>
 		  </tbody>
 		</table>
 		<blockquote><p>Note text.</p></blockquote>
@@ -147,17 +149,25 @@ func TestParseType(t *testing.T) {
 		t.Fatalf("expected three description entries, got %d", got)
 	}
 
-	if got := len(typeDef.Fields); got != 2 {
-		t.Fatalf("expected two fields, got %d", got)
+	if got := len(typeDef.Fields); got != 4 {
+		t.Fatalf("expected four fields, got %d", got)
 	}
 
 	fields := typeDef.Fields
-	if fields[0].Name != "chat_id" || fields[0].TypeRef.RawType != "Integer" || fields[0].Required {
-		t.Fatalf("chat_id field not normalized: %#v", fields[0])
+	if fields[0].Name != "chat_id" || fields[0].TypeRef.RawType != "Integer64" || fields[0].Required {
+		t.Fatalf("chat_id field not normalized to Integer64: %#v", fields[0])
 	}
 
-	if !fields[1].Required {
-		t.Fatalf("expected second field to be required")
+	if fields[1].Name != "user_id" || fields[1].TypeRef.RawType != "Integer64" || fields[1].Required {
+		t.Fatalf("user_id field not normalized to Integer64: %#v", fields[1])
+	}
+
+	if !fields[2].Required {
+		t.Fatalf("expected third field to be required")
+	}
+
+	if fields[3].Name != "large_val" || fields[3].TypeRef.RawType != "Integer64" {
+		t.Fatalf("large_val field not normalized to Integer64: %#v", fields[3])
 	}
 
 	if !reflect.DeepEqual(typeDef.Notes, []string{"Note text."}) {
@@ -554,6 +564,11 @@ func TestTypeRefUnionAndSpec(t *testing.T) {
 	spec = NewTypeRef("Integer").ToTypeSpec()
 	if spec.Type != "integer" {
 		t.Fatalf("primitive spec unexpected: %#v", spec)
+	}
+
+	spec = NewTypeRef("Integer64").ToTypeSpec()
+	if spec.Type != "integer" || spec.Format != "int64" {
+		t.Fatalf("expected int64 format for Integer64, got %#v", spec)
 	}
 
 	spec = NewTypeRef("int64").ToTypeSpec()

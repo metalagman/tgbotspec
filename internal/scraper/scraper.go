@@ -77,7 +77,7 @@ func Run(w io.Writer) error {
 			Fields: []openapi.TypeField{
 				{
 					Name:   "migrate_to_chat_id",
-					Schema: &openapi.TypeSpec{Type: "integer"},
+					Schema: &openapi.TypeSpec{Type: "integer", Format: "int64"},
 				},
 				{
 					Name:   "retry_after",

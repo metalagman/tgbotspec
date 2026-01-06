@@ -112,9 +112,13 @@ func ParseMethod(doc *goquery.Document, anchor string) (*MethodDef, error) {
 		// Determine required based on description starting with Optional
 		def.Required = !isOptionalDescription(def.Description)
 
-		// Force chat_id to be Integer for method parameters as well
-		if name == "chat_id" {
-			def.TypeRef = NewTypeRef("Integer")
+		// Force chat_id and user_id to be Integer64 for method parameters as well.
+		// Priority for chat_id is based on its name.
+		// Also force any parameter mentioning "64-bit integer" in description to be Integer64.
+		if name == "chat_id" || strings.HasSuffix(name, "_chat_id") ||
+			name == "user_id" || strings.HasSuffix(name, "_user_id") ||
+			strings.Contains(strings.ToLower(def.Description), "64-bit integer") {
+			def.TypeRef = NewTypeRef("Integer64")
 		}
 
 		res.Params[name] = def

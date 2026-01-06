@@ -116,13 +116,10 @@ func (t *TypeRef) ToTypeSpec() *openapi.TypeSpec { //nolint:cyclop // mapping ty
 	switch strings.ToLower(raw) {
 	case "string":
 		return &openapi.TypeSpec{Type: "string"}
-	case "integer", "int", "int64":
-		format := ""
-		if strings.EqualFold(raw, "int64") {
-			format = "int64"
-		}
-
-		return &openapi.TypeSpec{Type: "integer", Format: format}
+	case "integer", "int":
+		return &openapi.TypeSpec{Type: "integer"}
+	case "integer64", "int64":
+		return &openapi.TypeSpec{Type: "integer", Format: "int64"}
 	case "float", "float number", "number":
 		return &openapi.TypeSpec{Type: "number"}
 	case "boolean", "bool":
@@ -292,9 +289,13 @@ func ParseType(doc *goquery.Document, anchor string) (*TypeDef, error) {
 		if fieldDef.Name == "" {
 			return
 		}
-		// Force chat_id to be Integer regardless of parsed union or other forms
-		if fieldDef.Name == "chat_id" {
-			fieldDef.TypeRef = NewTypeRef("Integer")
+		// Force chat_id and user_id to be Integer64 regardless of parsed union or other forms.
+		// Priority for chat_id is based on its name.
+		// Also force any field mentioning "64-bit integer" in description to be Integer64.
+		if fieldDef.Name == "chat_id" || strings.HasSuffix(fieldDef.Name, "_chat_id") ||
+			fieldDef.Name == "user_id" || strings.HasSuffix(fieldDef.Name, "_user_id") ||
+			strings.Contains(strings.ToLower(fieldDef.Description), "64-bit integer") {
+			fieldDef.TypeRef = NewTypeRef("Integer64")
 		}
 
 		fieldDef.Required = !isOptionalDescription(fieldDef.Description)
