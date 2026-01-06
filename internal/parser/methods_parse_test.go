@@ -114,6 +114,7 @@ func TestParseMethodErrors(t *testing.T) {
 	})
 }
 
+//nolint:cyclop
 func TestParseType(t *testing.T) {
 	doc := mustDoc(t, `
 		<html><body>
