@@ -3,7 +3,7 @@ package scraper
 import (
 	"fmt"
 	"io"
-	"log/slog"
+	"log"
 	"sort"
 	"strings"
 
@@ -39,7 +39,7 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 		title = "Telegram Bot API"
 	}
 
-	slog.Info("scraper: detected Telegram Bot API", "title", title, "version", apiVersion)
+	log.Printf("scraper: detected Telegram Bot API title %q, version %s", title, apiVersion)
 
 	typeTargets, methodTargets := splitTargets(parser.ParseNavLists(doc), doc)
 
@@ -335,7 +335,7 @@ func splitTargets(targets []parser.ParseTarget, doc *goquery.Document) ([]parser
 		case parser.ParseModeType:
 			td, err := parser.ParseType(doc, target.Anchor)
 			if err != nil {
-				slog.Error("scraper: parse type failed", "anchor", target.Anchor, "error", err)
+				log.Printf("scraper: parse type %q failed: %v", target.Anchor, err)
 
 				continue
 			}
@@ -344,7 +344,7 @@ func splitTargets(targets []parser.ParseTarget, doc *goquery.Document) ([]parser
 		case parser.ParseModeMethod:
 			md, err := parser.ParseMethod(doc, target.Anchor)
 			if err != nil {
-				slog.Error("scraper: parse method failed", "anchor", target.Anchor, "error", err)
+				log.Printf("scraper: parse method %q failed: %v", target.Anchor, err)
 
 				continue
 			}
