@@ -3,7 +3,7 @@ package fetcher
 import (
 	"bytes"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"time"
 
@@ -44,10 +44,10 @@ func HTML() ([]byte, error) {
 	if fileInfo, err := os.Stat(cacheFile); err == nil {
 		age := time.Since(fileInfo.ModTime())
 		if age < cacheLimit {
-			log.Printf(
-				"fetcher: using cached spec %s (age %s)",
-				cacheFile,
-				age.Truncate(time.Second),
+			slog.Info(
+				"fetcher: using cached spec",
+				"file", cacheFile,
+				"age", age.Truncate(time.Second),
 			)
 
 			data, err := os.ReadFile(cacheFile)
@@ -58,11 +58,11 @@ func HTML() ([]byte, error) {
 			return data, nil
 		}
 
-		log.Printf(
-			"fetcher: cache expired for %s (age %s > %s), refetching",
-			cacheFile,
-			age.Truncate(time.Second),
-			cacheLimit,
+		slog.Info(
+			"fetcher: cache expired, refetching",
+			"file", cacheFile,
+			"age", age.Truncate(time.Second),
+			"limit", cacheLimit,
 		)
 	}
 
@@ -73,13 +73,17 @@ func HTML() ([]byte, error) {
 		return nil, fmt.Errorf("fetch: %w", err)
 	}
 
-	log.Printf("fetcher: fetched spec from %s (%d bytes)", fetchURL, len(resp.Body()))
+	slog.Info(
+		"fetcher: fetched spec",
+		"url", fetchURL,
+		"bytes", len(resp.Body()),
+	)
 
 	if err := os.WriteFile(cacheFile, resp.Body(), cacheFilePerm); err != nil {
 		return nil, fmt.Errorf("write cache: %w", err)
 	}
 
-	log.Printf("fetcher: wrote cache file %s", cacheFile)
+	slog.Info("fetcher: wrote cache file", "file", cacheFile)
 
 	return resp.Body(), nil
 }
