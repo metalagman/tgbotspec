@@ -20,7 +20,7 @@ your own tooling.
 
 ## Examples
 
-- [Telegram Bot OpenAPI Specification](https://github.com/metalagman/tgbotspec/releases/latest/download/openapi.yaml) (generated with this tool)
+- [TgBotKit Client OpenAPI (latest)](https://github.com/tgbotkit/client/releases/latest/download/openapi.yaml) (published by the client project)
 - [TgBotKit Client](https://github.com/tgbotkit/client) (golang, generated with [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen) from this spec)
 
 
