@@ -68,6 +68,30 @@ go build -o tgbotspec ./cmd/tgbotspec
 ./tgbotspec -o openapi.yaml
 ```
 
+## Multi-platform Distribution (Omnidist)
+
+This repository includes Omnidist configuration in `.omnidist/omnidist.yaml` and
+a generated GitHub Actions workflow at
+`.github/workflows/omnidist-release.yml`.
+
+Local Omnidist commands (using npm package `@omnidist/omnidist@latest`):
+
+```bash
+task omnidist:build
+task omnidist:stage
+task omnidist:verify
+```
+
+One-time Omnidist bootstrap in this repo:
+
+```bash
+task omnidist:init
+task omnidist:ci
+```
+
+For tag-based release publishing in GitHub Actions, set repository secrets:
+`NPM_PUBLISH_TOKEN` and `UV_PUBLISH_TOKEN`.
+
 
 ## Links
 
@@ -77,4 +101,3 @@ go build -o tgbotspec ./cmd/tgbotspec
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-

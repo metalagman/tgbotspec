@@ -31,6 +31,41 @@ tasks:
     cmds:
       - go run ./cmd/tgbotspec > {{.OUTPUT}}
 
+  omnidist:init:
+    desc: Bootstrap Omnidist workspace once (skips if config already exists)
+    cmds:
+      - |
+        if [ -f .omnidist/omnidist.yaml ]; then
+          echo ".omnidist/omnidist.yaml already exists; skipping init"
+        else
+          npx -y @omnidist/omnidist@latest init
+        fi
+
+  omnidist:ci:
+    desc: Generate Omnidist GitHub release workflow once (skips if it exists)
+    cmds:
+      - |
+        if [ -f .github/workflows/omnidist-release.yml ]; then
+          echo ".github/workflows/omnidist-release.yml already exists; skipping ci generation"
+        else
+          npx -y @omnidist/omnidist@latest ci
+        fi
+
+  omnidist:build:
+    desc: Build Omnidist artifacts for configured targets
+    cmds:
+      - npx -y @omnidist/omnidist@latest build
+
+  omnidist:stage:
+    desc: Stage Omnidist npm/uv artifacts
+    cmds:
+      - npx -y @omnidist/omnidist@latest stage
+
+  omnidist:verify:
+    desc: Verify Omnidist staged artifacts
+    cmds:
+      - npx -y @omnidist/omnidist@latest verify
+
   generate:client:
     desc: Generate Telegram Bot API Go client
     cmds:
