@@ -1,5 +1,11 @@
 # AGENTS Guidelines for This Repository
 
+These guidelines apply to all agents, including Gemini. When working on this
+repository, you must strictly follow the guidelines defined below. They cover
+branching, commits, preferred workflow, code style, linting, tests, and file
+conventions. Adhering to these standards ensures consistency and quality across
+all contributions.
+
 This project scrapes the official Telegram Bot API reference and renders an OpenAPI
 3.0 spec via `./cmd/tgbotspec`. The entrypoints live under `internal/` with the
 OpenAPI template in `internal/openapi/openapi.yaml.gotmpl`.
