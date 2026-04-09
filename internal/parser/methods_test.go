@@ -481,3 +481,15 @@ func TestExtractReturnType(t *testing.T) { //nolint:funlen // large table ensure
 		}
 	}
 }
+
+func TestNormalizeReturnTypePhraseTokenAsString(t *testing.T) {
+	if got := normalizeReturnTypePhrase("the token as String"); got != "String" {
+		t.Fatalf("expected String, got %q", got)
+	}
+}
+
+func TestExtractReturnTypeTokenAsString(t *testing.T) {
+	if got := extractReturnType([]string{"Returns the token as String on success."}); got != "String" {
+		t.Fatalf("expected String, got %q", got)
+	}
+}
