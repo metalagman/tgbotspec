@@ -495,7 +495,7 @@ func normalizeReturnTypePhrase(s string) string {
 
 	if idx := strings.LastIndex(ls, " as "); idx != -1 {
 		before := strings.TrimSpace(ls[:idx])
-		if strings.HasSuffix(before, " link") {
+		if strings.HasSuffix(before, " link") || before == "token" || strings.HasSuffix(before, " token") {
 			s = strings.TrimSpace(s[idx+len(" as "):])
 
 			stripLeading()
