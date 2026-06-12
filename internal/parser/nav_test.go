@@ -8,6 +8,7 @@ func TestParseNavAndAllNavs(t *testing.T) {
 		<h3><a class="anchor" name="methods"></a>Methods</h3>
 		<h4><a class="anchor" name="getme"></a>getMe</h4>
 		<h4><a class="anchor" name="Sticker"></a>Sticker</h4>
+		<h4><a class="anchor" name="bad-anchor"></a>badAnchor</h4>
 		<h4><a class="anchor" name="double"></a>double word</h4>
 		<h3><a class="anchor" name="types"></a>Types</h3>
 		<h4><a class="anchor" name="user"></a>User</h4>
