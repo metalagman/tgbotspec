@@ -100,6 +100,8 @@ func TestParseDocumentTargetsIncludesHeadingOnlySections(t *testing.T) {
 		<a data-target="#User">User</a>
 		<a data-target="#User">Duplicate</a>
 		<a data-target="#getMe">getMe</a>
+		<h4>No anchor</h4>
+		<h4><a class="anchor" name="User"></a>User</h4>
 		<h3><a class="anchor" name="rich-messages"></a>Rich messages</h3>
 		<h4><a class="anchor" name="rich-message-formatting-options"></a>Rich Message Formatting Options</h4>
 		<h4><a class="anchor" name="richmessage"></a>RichMessage</h4>
