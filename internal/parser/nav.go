@@ -37,6 +37,30 @@ func containsExactlyOneWord(s string) bool {
 	return len(words) == 1
 }
 
+func newParseTarget(anchor, name string) (ParseTarget, bool) {
+	anchor = strings.TrimSpace(anchor)
+	if anchor == "" || strings.Contains(anchor, "-") {
+		return ParseTarget{}, false
+	}
+
+	name = strings.TrimSpace(name)
+	if name == "" || !containsExactlyOneWord(name) {
+		return ParseTarget{}, false
+	}
+
+	t := ParseTarget{
+		Anchor: anchor,
+		Name:   name,
+	}
+	if isFirstLetterCapital(name) {
+		t.Mode = ParseModeType
+	} else {
+		t.Mode = ParseModeMethod
+	}
+
+	return t, true
+}
+
 // ParseNav scans the documentation for a navigation section identified by the
 // given anchor and returns the immediate method/type targets below it.
 func ParseNav(doc *goquery.Document, anchor string) []ParseTarget {
@@ -58,14 +82,9 @@ func ParseNav(doc *goquery.Document, anchor string) []ParseTarget {
 
 		s = s.Find("a.anchor")
 		if id, ok := s.Attr("name"); ok {
-			t := ParseTarget{
-				Anchor: id,
-				Name:   name,
-			}
-			if isFirstLetterCapital(t.Name) {
-				t.Mode = ParseModeType
-			} else {
-				t.Mode = ParseModeMethod
+			t, ok := newParseTarget(id, name)
+			if !ok {
+				return
 			}
 
 			res = append(res, t)
@@ -87,40 +106,64 @@ func ParseAllNavs(doc *goquery.Document, anchors []string) []ParseTarget {
 	return targets
 }
 
+// ParseDocumentTargets extracts all method/type targets that can be parsed from
+// the current Telegram docs. It combines explicit navigation links with h4 API
+// headings so newly added documentation sections are not missed.
+func ParseDocumentTargets(doc *goquery.Document) []ParseTarget {
+	var res []ParseTarget
+
+	seen := make(map[string]struct{})
+	addTarget := func(anchor, name string) {
+		t, ok := newParseTarget(anchor, name)
+		if !ok {
+			return
+		}
+
+		if _, exists := seen[t.Anchor]; exists {
+			return
+		}
+
+		res = append(res, t)
+		seen[t.Anchor] = struct{}{}
+	}
+
+	for _, target := range ParseNavLists(doc) {
+		addTarget(target.Anchor, target.Name)
+	}
+
+	doc.Find("h4").Each(func(i int, s *goquery.Selection) {
+		anchor := s.ChildrenFiltered("a.anchor").First()
+
+		id, ok := anchor.Attr("name")
+		if !ok {
+			return
+		}
+
+		addTarget(id, s.Text())
+	})
+
+	return res
+}
+
 // ParseNavLists extracts targets from the navigation lists rendered at the top
 // of the Telegram docs, deduplicating anchors and inferring their mode.
-func ParseNavLists(doc *goquery.Document) []ParseTarget { //nolint:funlen // iterates over multiple DOM lists
+func ParseNavLists(doc *goquery.Document) []ParseTarget {
 	var res []ParseTarget
 
 	seen := make(map[string]struct{})
 
 	addTarget := func(anchor, name string) {
-		anchor = strings.TrimSpace(anchor)
-		if anchor == "" || strings.Contains(anchor, "-") {
+		t, ok := newParseTarget(anchor, name)
+		if !ok {
 			return
 		}
 
-		if _, exists := seen[anchor]; exists {
+		if _, exists := seen[t.Anchor]; exists {
 			return
-		}
-
-		name = strings.TrimSpace(name)
-		if name == "" {
-			return
-		}
-
-		t := ParseTarget{
-			Anchor: anchor,
-			Name:   name,
-		}
-		if isFirstLetterCapital(name) {
-			t.Mode = ParseModeType
-		} else {
-			t.Mode = ParseModeMethod
 		}
 
 		res = append(res, t)
-		seen[anchor] = struct{}{}
+		seen[t.Anchor] = struct{}{}
 	}
 
 	doc.Find("a[data-target]").Each(func(i int, s *goquery.Selection) {

@@ -45,7 +45,7 @@ Download the latest release for your platform from
 
 ## Build and run locally
 
-All commands require Go 1.24+ when building locally.
+All commands require Go 1.26.4+ when building locally.
 
 - (Recommended) Add the CLI as a tool to your project and run it:
 

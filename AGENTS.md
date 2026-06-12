@@ -17,7 +17,7 @@ OpenAPI template in `internal/openapi/openapi.yaml.gotmpl`.
 - Reference relevant issue IDs in commits or PRs when applicable (e.g. `Fix #42`).
 
 ## Preferred Workflow
-- Use Go **1.24+**.
+- Use Go **1.26.4+**.
 - A `Taskfile.yml` is available: `task`, `task parse`, and `task parse:save` all run
   the generator; the latter writes to `openapi.generated.yaml`. Use `task validate`
   to verify the generated spec against the OpenAPI 3.0 schema (requires Docker).
@@ -30,7 +30,7 @@ OpenAPI template in `internal/openapi/openapi.yaml.gotmpl`.
   object.
 
 ## Code Style
-- Go sources must compile with the pinned `go1.24` toolchain.
+- Go sources must compile with the `go1.26.4` version pinned in `go.mod`.
 - Run `gofmt`, `goimports`, and any project formatters before committing.
 - Respect `.golangci.yml`; do not disable linters locally to achieve a clean run.
 - Favor explicit, self-documenting code. Add concise comments only when logic is

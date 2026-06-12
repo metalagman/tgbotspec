@@ -14,7 +14,7 @@ exception.
 - Reference issue IDs in commits/PRs when relevant (e.g. `Fix #42`).
 
 ## 2. Code Style
-- Go source must compile with `go1.24` (toolchain pinned in `go.mod`).
+- Go source must compile with `go1.26.4` (Go version pinned in `go.mod`).
 - Run `gofmt`, `goimports`, and project formatters before committing.
 - Respect the linters configured in `.golangci.yml`; **never** disable them
   locally to get a clean run.

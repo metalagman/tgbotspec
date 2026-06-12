@@ -41,7 +41,7 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 
 	slog.Info("scraper: detected Telegram Bot API", "title", title, "version", apiVersion)
 
-	typeTargets, methodTargets := splitTargets(parser.ParseNavLists(doc), doc)
+	typeTargets, methodTargets := splitTargets(parser.ParseDocumentTargets(doc), doc)
 
 	// Pass 1: Create a map of all types for lookup during merging
 	typesMap := make(map[string]parser.TypeDef, len(typeTargets))

@@ -8,6 +8,7 @@ func TestParseNavAndAllNavs(t *testing.T) {
 		<h3><a class="anchor" name="methods"></a>Methods</h3>
 		<h4><a class="anchor" name="getme"></a>getMe</h4>
 		<h4><a class="anchor" name="Sticker"></a>Sticker</h4>
+		<h4><a class="anchor" name="bad-anchor"></a>badAnchor</h4>
 		<h4><a class="anchor" name="double"></a>double word</h4>
 		<h3><a class="anchor" name="types"></a>Types</h3>
 		<h4><a class="anchor" name="user"></a>User</h4>
@@ -91,6 +92,55 @@ func TestParseNavListsSkipsHyphenAnchors(t *testing.T) {
 	)
 	if targets := ParseNavLists(doc); len(targets) != 0 {
 		t.Fatalf("expected anchors with hyphen to be skipped, got %#v", targets)
+	}
+}
+
+func TestParseDocumentTargetsIncludesHeadingOnlySections(t *testing.T) {
+	doc := mustDoc(t, `
+		<html><body>
+		<a data-target="#User">User</a>
+		<a data-target="#User">Duplicate</a>
+		<a data-target="#getMe">getMe</a>
+		<h4>No anchor</h4>
+		<h4><a class="anchor" name="User"></a>User</h4>
+		<h3><a class="anchor" name="rich-messages"></a>Rich messages</h3>
+		<h4><a class="anchor" name="rich-message-formatting-options"></a>Rich Message Formatting Options</h4>
+		<h4><a class="anchor" name="richmessage"></a>RichMessage</h4>
+		<h4><a class="anchor" name="inputrichmessage"></a>InputRichMessage</h4>
+		<h4><a class="anchor" name="sendrichmessage"></a>sendRichMessage</h4>
+		<h4><a class="anchor" name="sendrichmessagedraft"></a>sendRichMessageDraft</h4>
+		</body></html>
+	`)
+
+	targets := ParseDocumentTargets(doc)
+
+	modes := make(map[string]ParseMode, len(targets))
+	for _, target := range targets {
+		modes[target.Name] = target.Mode
+		if target.Anchor == "rich-message-formatting-options" {
+			t.Fatalf("expected non-API rich formatting heading to be skipped")
+		}
+	}
+
+	for _, name := range []string{
+		"User",
+		"getMe",
+		"RichMessage",
+		"InputRichMessage",
+		"sendRichMessage",
+		"sendRichMessageDraft",
+	} {
+		if _, ok := modes[name]; !ok {
+			t.Fatalf("expected %s target to be discovered in %#v", name, targets)
+		}
+	}
+
+	if modes["RichMessage"] != ParseModeType || modes["InputRichMessage"] != ParseModeType {
+		t.Fatalf("expected rich message schemas to be type targets, got %#v", modes)
+	}
+
+	if modes["sendRichMessage"] != ParseModeMethod || modes["sendRichMessageDraft"] != ParseModeMethod {
+		t.Fatalf("expected rich message methods to be method targets, got %#v", modes)
 	}
 }
 

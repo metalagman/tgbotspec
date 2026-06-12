@@ -2,10 +2,12 @@ package scraper //nolint:testpackage // tests rely on internal helper hooks
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/getkin/kin-openapi/openapi3"
 
 	"github.com/metalagman/tgbotspec/internal/openapi"
 	"github.com/metalagman/tgbotspec/internal/parser"
@@ -223,6 +225,100 @@ func TestRunWithEmptyDoc(t *testing.T) {
 
 	if !strings.Contains(out, "version: \"0.0.0\"") {
 		t.Error("expected default version")
+	}
+}
+
+//nolint:funlen // inline HTML keeps the regression fixture readable
+func TestRunDiscoversHeadingOnlySectionsAndValidatesOpenAPI(t *testing.T) {
+	original := fetchDocument
+
+	t.Cleanup(func() {
+		fetchDocument = original
+	})
+
+	html := `
+<html>
+<head><title>Mock API</title></head>
+<body>
+	<p><strong>Bot API 10.1</strong></p>
+
+	<h3><a class="anchor" name="rich-messages"></a>Rich messages</h3>
+	<h4><a class="anchor" name="rich-message-formatting-options"></a>Rich Message Formatting Options</h4>
+	<p>Formatting prose that must not be parsed as an API target.</p>
+
+	<h4><a class="anchor" name="richmessage"></a>RichMessage</h4>
+	<p>Rich formatted message.</p>
+	<table><tbody>
+		<tr><td>blocks</td><td>Array of RichBlock</td><td>Content of the message</td></tr>
+		<tr><td>is_rtl</td><td>Boolean</td><td>Optional. True, if the rich message must be shown right-to-left</td></tr>
+	</tbody></table>
+
+	<h4><a class="anchor" name="richblock"></a>RichBlock</h4>
+	<p>Represents a rich message block.</p>
+	<table><tbody>
+		<tr><td>text</td><td>String</td><td>Block text</td></tr>
+	</tbody></table>
+
+	<h4><a class="anchor" name="inputrichmessage"></a>InputRichMessage</h4>
+	<p>Describes a rich message to be sent.</p>
+	<table><tbody>
+		<tr><td>html</td><td>String</td><td>Optional. HTML content</td></tr>
+		<tr><td>markdown</td><td>String</td><td>Optional. Markdown content</td></tr>
+	</tbody></table>
+
+	<h4><a class="anchor" name="message"></a>Message</h4>
+	<p>This object represents a message.</p>
+	<table><tbody>
+		<tr><td>message_id</td><td>Integer</td><td>Unique message identifier</td></tr>
+		<tr><td>rich_message</td><td>RichMessage</td><td>Optional. Rich message content</td></tr>
+	</tbody></table>
+
+	<h4><a class="anchor" name="sendrichmessage"></a>sendRichMessage</h4>
+	<p>Use this method to send rich messages. On success, the sent Message is returned.</p>
+	<table><tbody>
+		<tr><td>chat_id</td><td>Integer</td><td>Yes</td><td>Unique identifier for the target chat</td></tr>
+		<tr><td>rich_message</td><td>InputRichMessage</td><td>Yes</td><td>The message to be sent</td></tr>
+	</tbody></table>
+
+	<h4><a class="anchor" name="sendrichmessagedraft"></a>sendRichMessageDraft</h4>
+	<p>Use this method to stream a partial rich message. Returns True on success.</p>
+	<table><tbody>
+		<tr><td>chat_id</td><td>Integer</td><td>Yes</td><td>Unique identifier for the target chat</td></tr>
+		<tr><td>rich_message</td><td>InputRichMessage</td><td>Yes</td><td>The partial message to be streamed</td></tr>
+	</tbody></table>
+</body>
+</html>`
+
+	fetchDocument = func() (*goquery.Document, error) {
+		return docFromString(t, html), nil
+	}
+
+	var buf bytes.Buffer
+	if err := Run(&buf, Options{}); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+
+	out := buf.String()
+	assertContains(t, out, "RichMessage:", "RichMessage type")
+	assertContains(t, out, "InputRichMessage:", "InputRichMessage type")
+	assertContains(t, out, "operationId: sendRichMessage", "sendRichMessage method")
+	assertContains(t, out, "operationId: sendRichMessageDraft", "sendRichMessageDraft method")
+
+	validateOpenAPI(t, []byte(out))
+}
+
+func validateOpenAPI(t *testing.T, data []byte) {
+	t.Helper()
+
+	loader := openapi3.NewLoader()
+
+	doc, err := loader.LoadFromData(data)
+	if err != nil {
+		t.Fatalf("load OpenAPI: %v", err)
+	}
+
+	if err := doc.Validate(context.Background()); err != nil {
+		t.Fatalf("validate OpenAPI: %v", err)
 	}
 }
 
