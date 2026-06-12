@@ -23,6 +23,8 @@ distributions:
         package: '@tgbotspec/tgbotspec'
         registry: https://registry.npmjs.org
         access: public
+        publish-auth: trusted
+        repository-url: git+https://github.com/metalagman/tgbotspec.git
     uv:
         package: tgbotspec
         index-url: https://upload.pypi.org/legacy/
