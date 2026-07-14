@@ -3,6 +3,7 @@ package scraper //nolint:testpackage // tests rely on internal helper hooks
 import (
 	"bytes"
 	"context"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -122,6 +123,95 @@ func TestRunWritesOpenAPISpec(t *testing.T) {
 	assertContains(t, out, "operationId: getMe", "getMe method")
 	assertContains(t, out, "User:", "User type")
 	assertContains(t, out, "ResponseParameters:", "ResponseParameters type")
+}
+
+//nolint:funlen // inline HTML fixture keeps the transport regression explicit
+func TestRunMultipartJSONSerializedParamsRenderAsString(t *testing.T) {
+	original := fetchDocument
+
+	t.Cleanup(func() {
+		fetchDocument = original
+	})
+
+	html := `
+<html>
+<head><title>Mock API</title></head>
+<body>
+	<a data-target="#Message">Message</a>
+	<a data-target="#InlineKeyboardMarkup">InlineKeyboardMarkup</a>
+	<a data-target="#sendPhoto">sendPhoto</a>
+
+	<p><strong>Bot API 10.2</strong></p>
+
+	<h3>Available types</h3>
+	<h4><a class="anchor" name="Message"></a>Message</h4>
+	<p>This object represents a message.</p>
+	<table><tbody>
+		<tr><td>message_id</td><td>Integer</td><td>Unique message identifier</td></tr>
+	</tbody></table>
+
+	<h4><a class="anchor" name="InlineKeyboardMarkup"></a>InlineKeyboardMarkup</h4>
+	<p>This object represents an inline keyboard.</p>
+	<table><tbody>
+		<tr><td>inline_keyboard</td><td>Array of Array of InlineKeyboardButton</td><td>Array of button rows</td></tr>
+	</tbody></table>
+
+	<h3>Available methods</h3>
+	<h4><a class="anchor" name="sendPhoto"></a>sendPhoto</h4>
+	<p>Use this method to send photos. On success, the sent Message is returned.</p>
+	<table>
+		<tbody>
+			<tr><td>chat_id</td><td>Integer or String</td><td>Yes</td><td>Unique identifier for the target chat</td></tr>
+			<tr><td>photo</td><td>InputFile or String</td><td>Yes</td><td>Photo to send.</td></tr>
+			<tr><td>reply_markup</td><td>InlineKeyboardMarkup</td><td>Optional</td>
+				<td>A JSON-serialized object for an inline keyboard.</td></tr>
+		</tbody>
+	</table>
+</body>
+</html>`
+
+	fetchDocument = func() (*goquery.Document, error) {
+		return docFromString(t, html), nil
+	}
+
+	var buf bytes.Buffer
+	if err := Run(&buf, Options{}); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+
+	out := buf.String()
+
+	assertContains(t, out, "multipart/form-data:", "multipart section")
+
+	matched, err := regexp.MatchString(`reply_markup:\s*\n\s+type: string`, out)
+	if err != nil {
+		t.Fatalf("regex error: %v", err)
+	}
+
+	if !matched {
+		t.Fatalf("expected reply_markup multipart string in output\n%s", out)
+	}
+
+	matched, err = regexp.MatchString(`photo:\s*\n\s+type: string\s*\n\s+format: binary`, out)
+	if err != nil {
+		t.Fatalf("regex error: %v", err)
+	}
+
+	if !matched {
+		t.Fatalf("expected photo multipart binary in output\n%s", out)
+	}
+
+	replyMarkupJSONPattern := `reply_markup:\s*\n\s+description: A JSON-serialized object for an inline keyboard\.` +
+		`\s*\n\s+allOf:\s*\n\s+- \$ref: '#/components/schemas/InlineKeyboardMarkup'`
+
+	matched, err = regexp.MatchString(replyMarkupJSONPattern, out)
+	if err != nil {
+		t.Fatalf("regex error: %v", err)
+	}
+
+	if !matched {
+		t.Fatalf("expected reply_markup json ref in output\n%s", out)
+	}
 }
 
 //nolint:funlen // test contains inline HTML mock

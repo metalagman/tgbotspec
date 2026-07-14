@@ -61,7 +61,7 @@ paths:
               properties:
                 {{- range .Params}}
                 {{ .Name }}:
-{{ indent 18 (renderMultipartSchema .Schema) }}
+{{ indent 18 (renderMultipartSchema .Schema .JSONEncoded) }}
                 {{- end}}
               {{- $req := false }}
               {{- range .Params}}

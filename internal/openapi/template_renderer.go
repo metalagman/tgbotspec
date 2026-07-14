@@ -99,8 +99,8 @@ func renderJSONSchema(spec *TypeSpec) (string, error) {
 	return RenderTypeSpecToYAML(simplifyJSON(spec))
 }
 
-func renderMultipartSchema(spec *TypeSpec) (string, error) {
-	return RenderTypeSpecToYAML(simplifyMultipart(spec))
+func renderMultipartSchema(spec *TypeSpec, jsonEncoded bool) (string, error) {
+	return RenderTypeSpecToYAML(simplifyMultipart(spec, jsonEncoded))
 }
 
 func simplifyJSON(spec *TypeSpec) *TypeSpec {
@@ -151,16 +151,23 @@ func simplifyList(specs []TypeSpec) []TypeSpec {
 	return filtered
 }
 
-func simplifyMultipart(spec *TypeSpec) *TypeSpec {
+func simplifyMultipart(spec *TypeSpec, jsonEncoded bool) *TypeSpec {
 	if spec == nil {
 		return nil
+	}
+
+	if jsonEncoded {
+		return &TypeSpec{
+			Type:        "string",
+			Description: spec.Description,
+		}
 	}
 
 	if isBinary(spec) {
 		// If it's an array, we keep it an array but simplify items
 		if spec.Type == "array" && spec.Items != nil {
 			res := *spec
-			res.Items = simplifyMultipart(spec.Items)
+			res.Items = simplifyMultipart(spec.Items, false)
 
 			return &res
 		}
