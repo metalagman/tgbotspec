@@ -26,6 +26,7 @@ type MethodParam struct {
 	Name        string
 	Description string
 	Required    bool
+	JSONEncoded bool
 	Schema      *TypeSpec
 }
 

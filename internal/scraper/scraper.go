@@ -151,6 +151,7 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 				Name:        name,
 				Description: param.Description,
 				Required:    param.Required,
+				JSONEncoded: isJSONSerializedDescription(param.Description),
 				Schema:      s.WithDescription(param.Description),
 			})
 
@@ -167,6 +168,14 @@ func Run(w io.Writer, opts Options) error { //nolint:cyclop,funlen,gocognit
 	}
 
 	return nil
+}
+
+func isJSONSerializedDescription(desc string) bool {
+	desc = strings.ToLower(strings.TrimSpace(desc))
+
+	return strings.HasPrefix(desc, "a json-serialized object") ||
+		strings.HasPrefix(desc, "a json-serialized list") ||
+		strings.HasPrefix(desc, "a json-serialized array")
 }
 
 func mergeUnionTypes(

@@ -165,24 +165,43 @@ func TestSimplifyMultipart(t *testing.T) {
 	stringSpec := &TypeSpec{Type: "string"}
 	unionSpec := &TypeSpec{AnyOf: []TypeSpec{*binarySpec, *stringSpec}}
 
-	if simplifyMultipart(nil) != nil {
+	if simplifyMultipart(nil, false) != nil {
 		t.Error("expected nil for nil input")
 	}
-	
-got := simplifyMultipart(unionSpec)
+
+	got := simplifyMultipart(unionSpec, false)
 	if got == nil || got.Format != "binary" {
 		t.Errorf("expected union to simplify to binary in multipart, got %#v", got)
 	}
 
 	arraySpec := &TypeSpec{Type: "array", Items: unionSpec}
 
-	gotArray := simplifyMultipart(arraySpec)
+	gotArray := simplifyMultipart(arraySpec, false)
 	if gotArray == nil || gotArray.Items == nil || gotArray.Items.Format != "binary" {
 		t.Errorf("expected array items to be simplified in multipart, got %#v", gotArray)
 	}
 
-	if simplifyMultipart(stringSpec) != stringSpec {
+	if simplifyMultipart(stringSpec, false) != stringSpec {
 		t.Error("expected non-binary spec to remain unchanged")
+	}
+}
+
+func TestSimplifyMultipartJSONEncoded(t *testing.T) {
+	spec := &TypeSpec{
+		Type:        "object",
+		Description: "A JSON-serialized object for an inline keyboard",
+		Properties: map[string]TypeSpec{
+			"inline_keyboard": {Type: "array"},
+		},
+	}
+
+	got := simplifyMultipart(spec, true)
+	if got == nil || got.Type != "string" || got.Format != "" {
+		t.Fatalf("expected JSON-encoded multipart field to become plain string, got %#v", got)
+	}
+
+	if got.Description != spec.Description {
+		t.Fatalf("expected description to be preserved, got %q", got.Description)
 	}
 }
 
@@ -194,12 +213,13 @@ func TestRenderSpecializedSchemas(t *testing.T) {
 		t.Errorf("unexpected JSON schema: %q", jsonOut)
 	}
 
-	multipartOut, _ := renderMultipartSchema(unionSpec)
+	multipartOut, _ := renderMultipartSchema(unionSpec, false)
 	if !strings.Contains(multipartOut, "format: binary") {
 		t.Errorf("unexpected multipart schema: %q", multipartOut)
 	}
 }
 
+//nolint:cyclop,funlen // template output assertions intentionally cover several shapes
 func TestRenderTemplate(t *testing.T) {
 	data := &TemplateData{
 		Title:   "Test API",
@@ -224,6 +244,23 @@ func TestRenderTemplate(t *testing.T) {
 						Description: "Photo",
 						Required:    true,
 						Schema:      &TypeSpec{OneOf: []TypeSpec{{Type: "string", Format: "binary"}, {Type: "string"}}},
+					},
+					{
+						Name:        "reply_markup",
+						Description: "A JSON-serialized object for an inline keyboard",
+						Schema: &TypeSpec{
+							Ref: &TypeRef{Name: "InlineKeyboardMarkup"},
+						},
+						JSONEncoded: true,
+					},
+					{
+						Name:        "commands",
+						Description: "A JSON-serialized list of bot commands to be set as the list of the bot's commands.",
+						Schema: &TypeSpec{
+							Type: "array",
+							Items: &TypeSpec{Ref: &TypeRef{Name: "BotCommand"}},
+						},
+						JSONEncoded: true,
 					},
 				},
 				SupportsMultipart: true,
@@ -256,5 +293,23 @@ func TestRenderTemplate(t *testing.T) {
 	// YAML fields are sorted alphabetically: format before type
 	if !strings.Contains(out, "format: binary") || !strings.Contains(out, "type: string") {
 		t.Errorf("expected photo as binary in multipart section. Output:\n%s", out)
+	}
+
+	matched, err = regexp.MatchString(`reply_markup:\s*\n\s+type: string`, out)
+	if err != nil {
+		t.Fatalf("regex error: %v", err)
+	}
+
+	if !matched {
+		t.Errorf("expected reply_markup as string in multipart section. Output:\n%s", out)
+	}
+
+	matched, err = regexp.MatchString(`commands:\s*\n\s+type: string`, out)
+	if err != nil {
+		t.Fatalf("regex error: %v", err)
+	}
+
+	if !matched {
+		t.Errorf("expected commands as string in multipart section. Output:\n%s", out)
 	}
 }
