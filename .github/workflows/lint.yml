@@ -1,5 +1,7 @@
-name: golangci-lint
+name: lint
+
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -11,8 +13,6 @@ on:
 
 permissions:
   contents: read
-  # Optional: allow read access to pull requests. Use with `only-new-issues` option.
-  # pull-requests: read
 
 jobs:
   golangci:
@@ -23,5 +23,6 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+          cache: false
       - name: golangci-lint
-        run: go tool golangci-lint run ./...
+        run: go tool golangci-lint run
