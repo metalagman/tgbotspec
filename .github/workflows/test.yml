@@ -26,7 +26,10 @@ jobs:
       - name: Run tests with coverage
         run: go test ./... -coverprofile=coverage.out -covermode=atomic
       - name: Vulnerability check
-        run: go tool govulncheck ./...
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-file: go.mod
+          go-package: ./...
       - name: Upload coverage reports to Codecov
         if: github.event_name != 'pull_request'
         uses: codecov/codecov-action@v6
