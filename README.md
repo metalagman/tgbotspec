@@ -88,8 +88,11 @@ task omnidist:init
 task omnidist:ci
 ```
 
-For tag-based release publishing in GitHub Actions, set repository secrets:
-`NPM_PUBLISH_TOKEN` and `UV_PUBLISH_TOKEN`.
+Tag-based npm publishing uses trusted publishing. Set `UV_PUBLISH_TOKEN` for
+the uv/PyPI workflow.
+
+Maintainers: follow the [Bot API refresh and release runbook](docs/release-runbook.md)
+to update the spec, validate it, and publish from `main`.
 
 
 ## Links
