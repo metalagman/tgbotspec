@@ -11,7 +11,7 @@ This project scrapes the official Telegram Bot API reference and renders an Open
 OpenAPI template in `internal/openapi/openapi.yaml.gotmpl`.
 
 ## Branching & Commits
-- Branch from `master` for new work.
+- Branch from `main` for new work.
 - Keep commits focused on one logical change and use present-tense, imperative
   messages (e.g. `Add coverage for scraper`).
 - Reference relevant issue IDs in commits or PRs when applicable (e.g. `Fix #42`).
@@ -66,7 +66,7 @@ OpenAPI template in `internal/openapi/openapi.yaml.gotmpl`.
 - Ensure GitHub Actions (lint + Codecov) stay green; fix regressions rather than
   relaxing thresholds.
 - Add new workflows only after verifying the required tokens or secrets exist.
-- Maintainers tag releases from `master` once CI and Codecov pass, and should run
+- Maintainers tag releases from `main` once CI and Codecov pass, and should run
   `task parse:save` when publishing.
 
 ## File Conventions

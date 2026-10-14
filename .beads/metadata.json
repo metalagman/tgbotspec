@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "tgbotspec",
+  "project_id": "d0713828-8a20-4444-9834-b64af27b859c"
+}
