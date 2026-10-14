@@ -7,7 +7,7 @@ exception.
 ---
 
 ## 1. Branching & Commits
-- Create feature branches off `master`.
+- Create feature branches off `main`.
 - Keep commits focused on one logical change; split large work into reviewable
   chunks.
 - Use present‑tense, imperative commit messages (e.g. `Add coverage for scraper`).
@@ -50,7 +50,7 @@ exception.
 - Keep changelog notes inside PR descriptions; they are harvested for releases.
 
 ## 7. Release Process (Maintainers)
-- Tag releases from `master` after CI + Codecov pass.
+- Tag releases from `main` after CI + Codecov pass.
 - Regenerate OpenAPI artifacts with `task parse:save` when publishing.
 
 ---

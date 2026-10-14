@@ -4,7 +4,7 @@ name: publish-image
 on:
   push:
     branches:
-      - master
+      - main
     tags:
       - 'v*'
 
@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           TAGS=""
-          if [[ "${GITHUB_REF_TYPE}" == "branch" && "${GITHUB_REF_NAME}" == "master" ]]; then
+          if [[ "${GITHUB_REF_TYPE}" == "branch" && "${GITHUB_REF_NAME}" == "main" ]]; then
             TAGS+="latest"
           fi
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
