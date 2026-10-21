@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -395,6 +396,136 @@ func TestRunDiscoversHeadingOnlySectionsAndValidatesOpenAPI(t *testing.T) {
 	assertContains(t, out, "operationId: sendRichMessageDraft", "sendRichMessageDraft method")
 
 	validateOpenAPI(t, []byte(out))
+}
+
+//nolint:funlen,lll // inline HTML keeps the Bot API 10.3 regression fixture readable
+func TestRunBotAPI103EphemeralMessageParameters(t *testing.T) {
+	original := fetchDocument
+
+	t.Cleanup(func() { fetchDocument = original })
+
+	html := `
+<html>
+<head><title>Mock API</title></head>
+<body>
+	<p><strong>Bot API 10.3</strong></p>
+	<h3>Available types</h3>
+	<h4><a class="anchor" name="ephemeralmessageparameters"></a>EphemeralMessageParameters</h4>
+	<p>Describes an ephemeral message recipient.</p>
+	<table><tbody>
+		<tr><td>receiver_user_id</td><td>Integer</td><td>Unique identifier of the receiver</td></tr>
+		<tr><td>callback_query_id</td><td>String</td><td>Optional. Identifier of the callback query</td></tr>
+		<tr><td>replace_callback_query_message</td><td>Boolean</td><td>Optional. Pass True to replace the callback query message</td></tr>
+	</tbody></table>
+	<h4><a class="anchor" name="message"></a>Message</h4>
+	<p>This object represents a message.</p>
+	<table><tbody><tr><td>message_id</td><td>Integer</td><td>Unique message identifier</td></tr></tbody></table>
+	<h4><a class="anchor" name="inputrichmessage"></a>InputRichMessage</h4>
+	<p>Describes rich content.</p>
+	<table><tbody><tr><td>markdown</td><td>String</td><td>Optional. Markdown content</td></tr></tbody></table>
+	<h3>Available methods</h3>
+	<h4><a class="anchor" name="sendmessage"></a>sendMessage</h4>
+	<p>Use this method to send text messages. On success, the sent Message is returned.</p>
+	<table><tbody>
+		<tr><td>chat_id</td><td>Integer</td><td>Yes</td><td>Unique identifier for the target chat</td></tr>
+		<tr><td>text</td><td>String</td><td>Yes</td><td>Text of the message</td></tr>
+		<tr><td>ephemeral_message_parameters</td><td>EphemeralMessageParameters</td><td>Optional</td><td>Parameters of the ephemeral message</td></tr>
+	</tbody></table>
+	<h4><a class="anchor" name="sendrichmessage"></a>sendRichMessage</h4>
+	<p>Use this method to send rich messages. On success, the sent Message is returned.</p>
+	<table><tbody>
+		<tr><td>chat_id</td><td>Integer</td><td>Yes</td><td>Unique identifier for the target chat</td></tr>
+		<tr><td>rich_message</td><td>InputRichMessage</td><td>Yes</td><td>Rich content</td></tr>
+		<tr><td>ephemeral_message_parameters</td><td>EphemeralMessageParameters</td><td>Optional</td><td>Parameters of the ephemeral message</td></tr>
+	</tbody></table>
+</body>
+</html>`
+
+	fetchDocument = func() (*goquery.Document, error) { return docFromString(t, html), nil }
+
+	var buf bytes.Buffer
+	if err := Run(&buf, Options{}); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+
+	out := buf.String()
+	assertContains(t, out, "version: \"10.3\"", "Bot API version")
+	assertContains(t, out, "EphemeralMessageParameters:", "ephemeral parameters schema")
+	assertContains(t, out, "receiver_user_id:", "required receiver")
+	assertContains(t, out, "callback_query_id:", "optional callback query")
+	assertContains(t, out, "replace_callback_query_message:", "replacement flag")
+	assertContains(t, out, "ephemeral_message_parameters:", "send-method parameter")
+	assertContains(t, out, "operationId: sendRichMessage", "rich send method")
+	validateOpenAPI(t, []byte(out))
+
+	doc, err := openapi3.NewLoader().LoadFromData(buf.Bytes())
+	if err != nil {
+		t.Fatalf("load generated OpenAPI: %v", err)
+	}
+
+	ephemeral := doc.Components.Schemas["EphemeralMessageParameters"]
+	if ephemeral == nil || ephemeral.Value == nil {
+		t.Fatal("missing EphemeralMessageParameters schema")
+	}
+
+	if !slices.Equal(ephemeral.Value.Required, []string{"receiver_user_id"}) {
+		t.Errorf("EphemeralMessageParameters required fields = %v, want [receiver_user_id]", ephemeral.Value.Required)
+	}
+
+	assertSchemaPropertyType(t, ephemeral.Value, "receiver_user_id", "integer")
+	assertSchemaPropertyType(t, ephemeral.Value, "callback_query_id", "string")
+	assertSchemaPropertyType(t, ephemeral.Value, "replace_callback_query_message", "boolean")
+
+	assertEphemeralSendMethod(t, doc, "/sendMessage")
+	assertEphemeralSendMethod(t, doc, "/sendRichMessage")
+}
+
+func assertSchemaPropertyType(t *testing.T, schema *openapi3.Schema, property, want string) {
+	t.Helper()
+
+	ref := schema.Properties[property]
+	if ref == nil || ref.Value == nil || !ref.Value.Type.Is(want) {
+		t.Errorf("property %q type = %v, want %q", property, ref, want)
+	}
+}
+
+func assertEphemeralSendMethod(t *testing.T, doc *openapi3.T, path string) {
+	t.Helper()
+
+	properties := requestSchemaProperties(t, doc, path)
+
+	parameter := properties["ephemeral_message_parameters"]
+	if parameter == nil || parameter.Value == nil || len(parameter.Value.AllOf) != 1 ||
+		parameter.Value.AllOf[0].Ref != "#/components/schemas/EphemeralMessageParameters" {
+		t.Errorf("%s ephemeral_message_parameters does not reference EphemeralMessageParameters", path)
+	}
+
+	assertNoSchemaProperty(t, properties, path, "receiver_user_id")
+	assertNoSchemaProperty(t, properties, path, "callback_query_id")
+}
+
+func requestSchemaProperties(t *testing.T, doc *openapi3.T, path string) openapi3.Schemas {
+	t.Helper()
+
+	item := doc.Paths.Value(path)
+	if item == nil || item.Post == nil || item.Post.RequestBody == nil || item.Post.RequestBody.Value == nil {
+		t.Fatalf("missing POST request body for %s", path)
+	}
+
+	media := item.Post.RequestBody.Value.Content["application/json"]
+	if media == nil || media.Schema == nil || media.Schema.Value == nil {
+		t.Fatalf("missing application/json request schema for %s", path)
+	}
+
+	return media.Schema.Value.Properties
+}
+
+func assertNoSchemaProperty(t *testing.T, properties openapi3.Schemas, path, property string) {
+	t.Helper()
+
+	if _, ok := properties[property]; ok {
+		t.Errorf("%s unexpectedly has legacy top-level parameter %q", path, property)
+	}
 }
 
 func validateOpenAPI(t *testing.T, data []byte) {
