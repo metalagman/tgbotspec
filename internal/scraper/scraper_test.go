@@ -480,6 +480,186 @@ func TestRunBotAPI103EphemeralMessageParameters(t *testing.T) {
 	assertEphemeralSendMethod(t, doc, "/sendRichMessage")
 }
 
+//nolint:cyclop,funlen,lll // inline HTML keeps the Bot API 10.4 regression fixture readable
+func TestRunBotAPI104WidgetsAndOptionalEphemeralReceiver(t *testing.T) {
+	original := fetchDocument
+
+	t.Cleanup(func() { fetchDocument = original })
+
+	html := `
+<html>
+<head><title>Mock API</title></head>
+<body>
+	<p><strong>Bot API 10.4</strong></p>
+	<h3>Available types</h3>
+	<h4><a class="anchor" name="ephemeralmessageparameters"></a>EphemeralMessageParameters</h4>
+	<p>Describes an ephemeral message recipient.</p>
+	<table><tbody>
+		<tr><td>receiver_user_id</td><td>Integer</td><td>Optional. Unique identifier of the receiver</td></tr>
+		<tr><td>callback_query_id</td><td>String</td><td>Optional. Identifier of the callback query</td></tr>
+	</tbody></table>
+	<h4><a class="anchor" name="widget"></a>Widget</h4>
+	<p>This object describes an HTML widget.</p>
+	<table><tbody>
+		<tr><td>id</td><td>String</td><td>Optional. Unique identifier of the shared widget</td></tr>
+		<tr><td>html</td><td>String</td><td>HTML code of the widget</td></tr>
+	</tbody></table>
+	<h4><a class="anchor" name="widgetquery"></a>WidgetQuery</h4>
+	<p>This object represents an incoming query from a widget.</p>
+	<table><tbody><tr><td>id</td><td>String</td><td>Unique identifier for this query</td></tr></tbody></table>
+	<h4><a class="anchor" name="sharedwidgetquery"></a>SharedWidgetQuery</h4>
+	<p>This object represents an incoming query from a shared widget.</p>
+	<table><tbody><tr><td>id</td><td>String</td><td>Unique identifier for this query</td></tr></tbody></table>
+	<h4><a class="anchor" name="message"></a>Message</h4>
+	<p>This object represents a message.</p>
+	<table><tbody>
+		<tr><td>message_id</td><td>Integer</td><td>Unique message identifier</td></tr>
+		<tr><td>widget</td><td>Widget</td><td>Optional. Message is an HTML widget</td></tr>
+	</tbody></table>
+	<h4><a class="anchor" name="update"></a>Update</h4>
+	<p>This object represents an incoming update.</p>
+	<table><tbody>
+		<tr><td>update_id</td><td>Integer</td><td>Unique update identifier</td></tr>
+		<tr><td>widget_query</td><td>WidgetQuery</td><td>Optional. New incoming query from a widget</td></tr>
+		<tr><td>shared_widget_query</td><td>SharedWidgetQuery</td><td>Optional. New incoming query from a shared widget</td></tr>
+	</tbody></table>
+	<h3>Available methods</h3>
+	<h4><a class="anchor" name="sendwidget"></a>sendWidget</h4>
+	<p>Use this method to send a message with an HTML widget. On success, the sent Message is returned.</p>
+	<table><tbody>
+		<tr><td>chat_id</td><td>Integer</td><td>Yes</td><td>Unique identifier for the target chat</td></tr>
+		<tr><td>html</td><td>String</td><td>Yes</td><td>HTML code of the widget</td></tr>
+		<tr><td>allow_user_queries</td><td>Boolean</td><td>Optional</td><td>Pass True to allow widget queries</td></tr>
+	</tbody></table>
+	<h4><a class="anchor" name="sendsharedwidget"></a>sendSharedWidget</h4>
+	<p>Use this method to resend a shared widget. On success, the sent Message is returned.</p>
+	<table><tbody>
+		<tr><td>chat_id</td><td>Integer</td><td>Yes</td><td>Unique identifier for the target chat</td></tr>
+		<tr><td>widget_id</td><td>String</td><td>Yes</td><td>Unique identifier of the shared widget</td></tr>
+	</tbody></table>
+</body>
+</html>`
+
+	fetchDocument = func() (*goquery.Document, error) { return docFromString(t, html), nil }
+
+	var buf bytes.Buffer
+	if err := Run(&buf, Options{}); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+
+	validateOpenAPI(t, buf.Bytes())
+
+	doc, err := openapi3.NewLoader().LoadFromData(buf.Bytes())
+	if err != nil {
+		t.Fatalf("load generated OpenAPI: %v", err)
+	}
+
+	if doc.Info.Version != "10.4" {
+		t.Errorf("Bot API version = %q, want 10.4", doc.Info.Version)
+	}
+
+	ephemeral := doc.Components.Schemas["EphemeralMessageParameters"]
+	if ephemeral == nil || ephemeral.Value == nil {
+		t.Fatal("missing EphemeralMessageParameters schema")
+	}
+
+	if len(ephemeral.Value.Required) != 0 {
+		t.Errorf("EphemeralMessageParameters required fields = %v, want none", ephemeral.Value.Required)
+	}
+
+	widget := doc.Components.Schemas["Widget"]
+	if widget == nil || widget.Value == nil {
+		t.Fatal("missing Widget schema")
+	}
+
+	if !slices.Equal(widget.Value.Required, []string{"html"}) {
+		t.Errorf("Widget required fields = %v, want [html]", widget.Value.Required)
+	}
+
+	assertSchemaPropertyType(t, widget.Value, "html", "string")
+
+	message := doc.Components.Schemas["Message"]
+	if message == nil || message.Value == nil {
+		t.Fatal("missing Message schema")
+	}
+
+	assertSchemaPropertyRef(t, message.Value, "widget", "Widget")
+
+	update := doc.Components.Schemas["Update"]
+	if update == nil || update.Value == nil {
+		t.Fatal("missing Update schema")
+	}
+
+	assertSchemaPropertyRef(t, update.Value, "widget_query", "WidgetQuery")
+	assertSchemaPropertyRef(t, update.Value, "shared_widget_query", "SharedWidgetQuery")
+
+	sendWidget := requestSchema(t, doc, "/sendWidget")
+	if !slices.Equal(sendWidget.Required, []string{"chat_id", "html"}) {
+		t.Errorf("sendWidget required fields = %v, want [chat_id html]", sendWidget.Required)
+	}
+
+	assertSchemaPropertyType(t, sendWidget, "chat_id", "integer")
+	assertSchemaPropertyType(t, sendWidget, "html", "string")
+	assertSchemaPropertyType(t, sendWidget, "allow_user_queries", "boolean")
+
+	sendSharedWidget := requestSchema(t, doc, "/sendSharedWidget")
+	if !slices.Equal(sendSharedWidget.Required, []string{"chat_id", "widget_id"}) {
+		t.Errorf("sendSharedWidget required fields = %v, want [chat_id widget_id]", sendSharedWidget.Required)
+	}
+}
+
+//nolint:lll // inline HTML keeps the Bot API 10.5 regression fixture readable
+func TestRunBotAPI105BotSettings(t *testing.T) {
+	original := fetchDocument
+
+	t.Cleanup(func() { fetchDocument = original })
+
+	html := `
+<html>
+<head><title>Mock API</title></head>
+<body>
+	<p><strong>Bot API 10.5</strong></p>
+	<h3>Available methods</h3>
+	<h4><a class="anchor" name="setmysettings"></a>setMySettings</h4>
+	<p>Use this method to change the settings of the bot. Returns True on success.</p>
+	<table><tbody>
+		<tr><td>callback_query_mode</td><td>String</td><td>Optional</td><td>Mode in which the bot receives callback queries</td></tr>
+		<tr><td>can_join_groups</td><td>Boolean</td><td>Optional</td><td>Pass True to allow adding the bot to groups</td></tr>
+		<tr><td>has_topic_sidebar</td><td>Boolean</td><td>Optional</td><td>Pass True to show topics in a sidebar</td></tr>
+		<tr><td>supports_inline_queries</td><td>Boolean</td><td>Optional</td><td>Pass True to enable inline mode</td></tr>
+	</tbody></table>
+</body>
+</html>`
+
+	fetchDocument = func() (*goquery.Document, error) { return docFromString(t, html), nil }
+
+	var buf bytes.Buffer
+	if err := Run(&buf, Options{}); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+
+	validateOpenAPI(t, buf.Bytes())
+
+	doc, err := openapi3.NewLoader().LoadFromData(buf.Bytes())
+	if err != nil {
+		t.Fatalf("load generated OpenAPI: %v", err)
+	}
+
+	if doc.Info.Version != "10.5" {
+		t.Errorf("Bot API version = %q, want 10.5", doc.Info.Version)
+	}
+
+	settings := requestSchema(t, doc, "/setMySettings")
+	if len(settings.Required) != 0 {
+		t.Errorf("setMySettings required fields = %v, want none", settings.Required)
+	}
+
+	assertSchemaPropertyType(t, settings, "callback_query_mode", "string")
+	assertSchemaPropertyType(t, settings, "can_join_groups", "boolean")
+	assertSchemaPropertyType(t, settings, "has_topic_sidebar", "boolean")
+	assertSchemaPropertyType(t, settings, "supports_inline_queries", "boolean")
+}
+
 func assertSchemaPropertyType(t *testing.T, schema *openapi3.Schema, property, want string) {
 	t.Helper()
 
@@ -487,6 +667,26 @@ func assertSchemaPropertyType(t *testing.T, schema *openapi3.Schema, property, w
 	if ref == nil || ref.Value == nil || !ref.Value.Type.Is(want) {
 		t.Errorf("property %q type = %v, want %q", property, ref, want)
 	}
+}
+
+func assertSchemaPropertyRef(t *testing.T, schema *openapi3.Schema, property, want string) {
+	t.Helper()
+
+	propertyRef := schema.Properties[property]
+	if propertyRef == nil || propertyRef.Value == nil {
+		t.Fatalf("missing property %q", property)
+	}
+
+	wantRef := "#/components/schemas/" + want
+	if propertyRef.Ref == wantRef {
+		return
+	}
+
+	if len(propertyRef.Value.AllOf) == 1 && propertyRef.Value.AllOf[0].Ref == wantRef {
+		return
+	}
+
+	t.Errorf("property %q reference = %v, want %q", property, propertyRef, wantRef)
 }
 
 func assertEphemeralSendMethod(t *testing.T, doc *openapi3.T, path string) {
@@ -507,6 +707,12 @@ func assertEphemeralSendMethod(t *testing.T, doc *openapi3.T, path string) {
 func requestSchemaProperties(t *testing.T, doc *openapi3.T, path string) openapi3.Schemas {
 	t.Helper()
 
+	return requestSchema(t, doc, path).Properties
+}
+
+func requestSchema(t *testing.T, doc *openapi3.T, path string) *openapi3.Schema {
+	t.Helper()
+
 	item := doc.Paths.Value(path)
 	if item == nil || item.Post == nil || item.Post.RequestBody == nil || item.Post.RequestBody.Value == nil {
 		t.Fatalf("missing POST request body for %s", path)
@@ -517,7 +723,7 @@ func requestSchemaProperties(t *testing.T, doc *openapi3.T, path string) openapi
 		t.Fatalf("missing application/json request schema for %s", path)
 	}
 
-	return media.Schema.Value.Properties
+	return media.Schema.Value
 }
 
 func assertNoSchemaProperty(t *testing.T, properties openapi3.Schemas, path, property string) {
